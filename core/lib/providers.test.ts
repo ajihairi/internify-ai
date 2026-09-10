@@ -4,6 +4,8 @@ import {
   providerNames,
   getProvider,
   commandFileName,
+  commandName,
+  commandRelPath,
   renderCommand,
 } from "./providers";
 
@@ -19,6 +21,19 @@ test("commandFileName per format", () => {
   expect(commandFileName(PROVIDERS.opencode, "work")).toBe("work.md");
   expect(commandFileName(PROVIDERS.gemini, "work")).toBe("work.toml");
   expect(commandFileName(PROVIDERS.cursor, "work")).toBe("work.mdc");
+});
+
+test("commandName is branded", () => {
+  expect(commandName(PROVIDERS.opencode, "work")).toBe("internify.work");
+  expect(commandName(PROVIDERS.gemini, "boot")).toBe("internify.boot");
+  expect(commandName(PROVIDERS.claude, "work")).toBe("internify:work");
+});
+
+test("commandRelPath is branded + provider-specific", () => {
+  expect(commandRelPath(PROVIDERS.opencode, "work")).toBe("internify.work.md");
+  expect(commandRelPath(PROVIDERS.gemini, "boot")).toBe("internify.boot.toml");
+  expect(commandRelPath(PROVIDERS.cursor, "work")).toBe("internify-work.mdc");
+  expect(commandRelPath(PROVIDERS.claude, "work")).toBe("internify/work.md");
 });
 
 test("renderCommand: md has frontmatter", () => {

@@ -19,7 +19,7 @@ execute.
 ## Starting work
 
 ```text
-/work .intern/plans/<SpecName>
+/internify.work .intern/plans/<SpecName>
 ```
 
 The harness enforces the loop: Boot → Index → Read → Step → Edit → Evidence →

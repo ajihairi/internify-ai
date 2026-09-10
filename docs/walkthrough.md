@@ -8,8 +8,8 @@ Then every work session runs the same enforced loop:
 
 ![The enforced loop: read → step → edit → evidence → close](assets/session.gif)
 
-Inside **opencode**, the agent drives the loop through `/work`:
+Inside **opencode**, the agent drives the loop through `/internify.work`:
 
-![opencode session running /work](assets/opencode-session.png)
+![opencode session running /internify.work](assets/opencode-session.png)
 
 The clips are illustrative transcripts; the underlying output is real.

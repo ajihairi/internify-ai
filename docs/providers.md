@@ -4,15 +4,16 @@ internify plugs the same loop into different AI tools.
 
 | Provider | Integration | Enforces |
 |----------|-------------|----------|
-| opencode | plugin (`tool.execute.before/after`) + skill + `/work` | edit / write / bash |
+| opencode | plugin (`tool.execute.before/after`) + skill + `/internify.work` | edit / write / bash |
 | Claude Code | `PreToolUse` + `PostToolUse` hooks (`adapters/claude/`) | Edit / Write / MultiEdit / Bash |
-| Gemini CLI | generated command (`.gemini/commands/work.toml`) | via the CLI only |
-| Qwen | generated command (`.qwen/commands/work.md`) | via the CLI only |
-| Cursor | generated rule (`.cursor/rules/work.mdc`) | via the CLI only |
+| Gemini CLI | generated command (`.gemini/commands/internify.work.toml`) | via the CLI only |
+| Qwen | generated command (`.qwen/commands/internify.work.md`) | via the CLI only |
+| Cursor | generated rule (`.cursor/rules/internify-work.mdc`) | via the CLI only |
 | any (CLI) | `internify gate edit` / `internify gate bash` | via git hooks or wrappers |
 
 `internify init --tool <name>` wires it. Providers without tool hooks get the
-`/work` **command only** (no gating) — they can still enforce via the CLI.
+`/internify.work` **command only** (no gating) — they can still enforce via the CLI.
+On Claude Code, commands are namespaced (`/internify:work`).
 
 ## opencode
 

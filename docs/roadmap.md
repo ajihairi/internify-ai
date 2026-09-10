@@ -6,7 +6,7 @@
 - Layered gates: read → scope/step → anchor → bash → evidence.
 - Anchor verification; INDEX as human-readable tables + JSON block.
 - Mode A / Mode B (target ≠ knowledge); `plansDir` for non-standard layouts.
-- opencode adapter (plugin + skill + `/work`) and a Claude Code `PreToolUse` hook.
+- opencode adapter (plugin + skill + `/internify.work`) and a Claude Code `PreToolUse` hook.
 - Tool-agnostic CLI; `internify init` (scaffold + provider wiring).
 - **Skill packs**: bundled + external resolution, `init --skills`, `skills list`.
 - **Status-aware gates**: `status: draft|review|fixed` in frontmatter → optional
@@ -14,7 +14,7 @@
 - **Advanced profile**: `internify init --profile advanced` scaffolds PARA
   (`00-inbox…06-daily`) with `plansDir`/`dailyDir`.
 - **`internify update`** — refresh spec templates (`--force` for rules/roles).
-- **Command generator** — one source → `/work` for opencode, Claude, Gemini
+- **Command generator** — one source → `/internify.work` for opencode, Claude, Gemini
   (TOML), Qwen, Cursor (MDC); `commands generate`, wired by `init`. Claude
   `PostToolUse` marks reads.
 - Docs site (Material for MkDocs) on GitHub Pages.
@@ -27,7 +27,7 @@
   hooks, gate edits the same way.
 - **Provider-specific config** — write tool settings (not just commands) for
   Gemini/Qwen/Cursor when their formats allow.
-- **More pipeline commands** — generalize beyond `/work`.
+- **More pipeline commands** — generalize beyond `/internify.work`.
 
 ## Maintenance principles
 

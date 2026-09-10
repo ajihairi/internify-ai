@@ -6,6 +6,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- Chat commands are now branded and namespaced: `/internify.work`,
+  `/internify.boot`, `/internify.status` (Claude Code: `/internify:work`, …).
+
 ## [0.5.0] - 2026-09-10
 
 ### Added

@@ -30,7 +30,8 @@ import { sliceFunction, sliceSection } from "./lib/context";
 import { loadPaths } from "./lib/config";
 import { parseStatus } from "./lib/status";
 import {
-  commandFileName,
+  commandName,
+  commandRelPath,
   getProvider,
   providerNames,
   renderCommand,
@@ -390,7 +391,7 @@ const WORK_BODY_TOOLS = `Work on the spec folder: {ARGS}
 Steps:
 1. Call \`intern_index\` with \`specRoot="{ARGS}"\`.
 2. For every required read listed by the harness, use the \`read\` tool. Required reads MUST be read with \`read\` — \`intern_context\` does NOT satisfy Gate 1. Use \`intern_context\` only for extra, non-required slices.
-3. For each plan step in \`.intern/state/tasks/<id>/LEDGER.md\`, in order:
+3. For each plan step in the task's LEDGER (call \`intern_status\` to see it), in order:
    a. Call \`intern_step\` with the step id and its anchor (recorded in LEDGER.md).
    b. Edit only files in Scope.
    c. Call \`intern_evidence\` with claim + proof + result.
@@ -458,17 +459,17 @@ function generateCommands(ws: string, names: string[], pkg: string): string[] {
         "{ARGS}",
         p.argsToken,
       );
-      const file = commandFileName(p, def.name);
-      const dest = join(ws, p.commandDir, file);
+      const rel = commandRelPath(p, def.name);
+      const dest = join(ws, p.commandDir, rel);
       if (existsSync(dest)) {
-        console.log(`  = ${name}:${def.name} exists`);
+        console.log(`  = ${commandName(p, def.name)} exists`);
         continue;
       }
       mkdirSync(dirname(dest), { recursive: true });
       writeFileSync(dest, renderCommand(p, def.name, def.description, body));
       written.push(`${name}:${dest}`);
     }
-    console.log(`  + ${name} -> ${p.commandDir}/ {work,boot,status}${p.hooks ? "" : " (no hooks: command only)"}`);
+    console.log(`  + ${name} -> ${p.commandDir}/ (internify.work, internify.boot, internify.status)${p.hooks ? "" : " (no hooks: command only)"}`);
   }
   return written;
 }
@@ -636,7 +637,7 @@ async function cmdInit(argv: string[], f: Record<string, string>): Promise<void>
   }
 
   console.log(
-    `\nDone. Next:\n  1. restart the AI tool (config is not hot-reloaded)\n  2. bootstrap:  internify boot\n  3. start work: /work ${know}/plans/<SpecName>   (or the CLI)`,
+    `\nDone. Next:\n  1. restart the AI tool (config is not hot-reloaded)\n  2. bootstrap:  internify boot\n  3. start work: /internify.work ${know}/plans/<SpecName>   (or the CLI)`,
   );
 }
 
@@ -675,7 +676,7 @@ Commands:
                                     scaffold knowledge + wire the provider
   skills list                       list available skill packs
   commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]
-                                    install the /work command per provider
+                                    install the internify.* commands per provider
   update [--force]                  refresh spec templates (roles/rules with --force)
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task

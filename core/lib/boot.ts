@@ -65,12 +65,12 @@ export function buildContextPack(input: BootInput): string {
     input.specs.map((s) => `- ${s}`).join("\n") || "- (none)",
     "",
     "## Commands",
-    "- `/work <spec>`   start/resume a task",
-    "- `/boot`          refresh session context",
-    "- `/status`        show phase + pending reads",
+    "- `/internify.work <spec>`  start/resume a task",
+    "- `/internify.boot`         refresh session context",
+    "- `/internify.status`       show phase + pending reads",
     "",
     "## Next actions",
-    "- Continue the active step, start a new spec via /work, or discuss/bugfix.",
+    "- Continue the active step, start a new spec via /internify.work, or discuss/bugfix.",
     "",
   ].join("\n");
 }

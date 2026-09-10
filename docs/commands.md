@@ -2,7 +2,9 @@
 
 There are three kinds of "command" in internify — don't mix them up:
 
-1. **Slash commands** you type inside the AI chat: `/work`, `/boot`, `/status`.
+1. **Slash commands** you type inside the AI chat: `/internify.work`,
+   `/internify.boot`, `/internify.status`.
+   (On Claude Code they are namespaced: `/internify:work`, etc.)
 2. **Tools** the agent calls for you (opencode): `intern_*`. You do **not** type
    these.
 3. **Terminal commands** (any tool): `internify …`.
@@ -15,27 +17,28 @@ There are three kinds of "command" in internify — don't mix them up:
 
 | Command | What it does |
 |---------|--------------|
-| `/work <spec-folder>` | Start/resume a task — runs the whole loop |
-| `/boot` | Collect/refresh the session context from disk |
-| `/status` | Show the current phase, active step, and pending reads |
+| `/internify.work <spec-folder>` | Start/resume a task — runs the whole loop |
+| `/internify.boot` | Collect/refresh the session context from disk |
+| `/internify.status` | Show the current phase, active step, and pending reads |
 
 They are generated per provider by `internify init`, or
 `internify commands generate`:
 
-| Provider | Location | Format |
-|----------|----------|--------|
-| opencode | `.opencode/command/{work,boot,status}.md` | Markdown |
-| Claude Code | `.claude/commands/{work,boot,status}.md` | Markdown |
-| Gemini CLI | `.gemini/commands/{work,boot,status}.toml` | TOML |
-| Qwen | `.qwen/commands/{work,boot,status}.md` | Markdown |
-| Cursor | `.cursor/rules/{work,boot,status}.mdc` | MDC |
+| Provider | Location | Command |
+|----------|----------|---------|
+| opencode | `.opencode/command/internify.work.md` | `/internify.work` |
+| Claude Code | `.claude/commands/internify/work.md` | `/internify:work` |
+| Gemini CLI | `.gemini/commands/internify.work.toml` | `/internify.work` |
+| Qwen | `.qwen/commands/internify.work.md` | `/internify.work` |
+| Cursor | `.cursor/rules/internify-work.mdc` | rule |
 
 In **opencode**, type `/` in the TUI to see the available commands.
 
 ### Tools (the agent calls them — you don't type them)
 
 `intern_boot` is a **tool**, not a slash command. You don't type `/intern_boot`;
-you type `/boot`, and that tells the agent to call the `intern_boot` tool.
+you type `/internify.boot`, and that tells the agent to call the `intern_boot`
+tool.
 
 | Tool | What it does |
 |------|--------------|

@@ -28,7 +28,7 @@ Options: `internify init [dir] [--knowledge <name>] [--target <dir>] [--plansDir
 Restart the AI tool (config is not hot-reloaded), then start a spec:
 
 ```text
-/work .intern/plans/<SpecName>
+/internify.work .intern/plans/<SpecName>
 ```
 
 ## "My workspace only has a code repo"

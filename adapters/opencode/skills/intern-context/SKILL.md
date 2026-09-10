@@ -22,7 +22,7 @@ gets lost in a new session.
    reads, available specs, next actions.
 
 3. Wait for direction. Do not edit anything until the user picks a path
-   (discuss / bugfix / `/work <spec>`).
+   (discuss / bugfix / `/internify.work <spec>`).
 
 ## Fallback (plugin off or `intern_boot` fails)
 

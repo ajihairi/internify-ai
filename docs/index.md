@@ -38,9 +38,9 @@ Boot → Index → Read → Step → Edit → Evidence → Close → Daily
 
 ## See it in action
 
-Inside opencode, the agent drives the loop through `/work`:
+Inside opencode, the agent drives the loop through `/internify.work`:
 
-![opencode session running /work](assets/opencode-session.png)
+![opencode session running /internify.work](assets/opencode-session.png)
 
 More in the [Walkthrough](walkthrough.md).
 
@@ -57,7 +57,7 @@ mkdir my-workspace && cd my-workspace
 git clone git@github.com:you/my-project.git
 
 internify init --tool opencode     # or: --tool claude | none
-# restart your AI tool, then:  /work .intern/plans/<SpecName>
+# restart your AI tool, then:  /internify.work .intern/plans/<SpecName>
 ```
 
 ## Where to go next

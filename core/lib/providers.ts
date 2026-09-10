@@ -62,6 +62,24 @@ export function commandFileName(p: Provider, name: string): string {
   return `${name}.${ext}`;
 }
 
+/** Branded command name as typed in the chat. */
+export function commandName(p: Provider, base: string): string {
+  return p.name === "claude" ? `internify:${base}` : `internify.${base}`;
+}
+
+/**
+ * Branded path (relative to the provider's command dir) for a command.
+ * - opencode/qwen/gemini: `internify.<base>.<ext>`
+ * - claude: `internify/<base>.md` (namespaced → `/internify:<base>`)
+ * - cursor: `internify-<base>.mdc`
+ */
+export function commandRelPath(p: Provider, base: string): string {
+  const ext = p.format === "toml" ? "toml" : p.format === "mdc" ? "mdc" : "md";
+  if (p.name === "claude") return `internify/${base}.${ext}`;
+  if (p.format === "mdc") return `internify-${base}.${ext}`;
+  return `internify.${base}.${ext}`;
+}
+
 /** Render a command definition into the provider's format. */
 export function renderCommand(
   p: Provider,
