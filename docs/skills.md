@@ -70,7 +70,7 @@ A pack named `<name>` is found, in order, from:
    `~/.agents/skills/<name>`
 
 internify only **copies** external packs — it does not vendor third-party
-content. Existing packs in the target are never overwritten.
+content. Existing packs in the target are never overwritten by `init`.
 
 Install target:
 
@@ -79,3 +79,19 @@ Install target:
 | opencode | `<workspace>/.opencode/skills/<name>/` |
 | claude | `<workspace>/.claude/skills/<name>/` |
 | none | `<knowledge>/skills/<name>/` |
+
+### Updating packs
+
+A manifest (`.internify-packs.json`) records each installed pack's source and a
+content hash. Re-sync when the source changes (e.g. uteuk or superpowers update):
+
+```bash
+internify skills update                 # refresh packs already installed
+internify skills update --packs all     # target every available pack
+internify skills update --packs uteuk,caveman
+internify skills update --force         # also install packs not yet present
+```
+
+Only changed packs are rewritten; unchanged packs are skipped. `--force` also
+creates missing packs (i.e. install + update in one).
+

@@ -76,6 +76,7 @@ Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 | `internify gate edit <file>` | Exit 1 if the file is blocked |
 | `internify gate bash "<cmd>"` | Exit 1 if a shell write is blocked |
 | `internify skills list` | List available skill packs |
+| `internify skills update [--packs …] [--force]` | Re-sync installed skill packs |
 | `internify doctor` | Check environment + task health |
 | `internify commands generate [dir] [--providers …]` | Generate the slash commands |
 | `internify update [--force]` | Refresh spec templates |

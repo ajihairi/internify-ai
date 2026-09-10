@@ -31,6 +31,13 @@ import { loadPaths } from "./lib/config";
 import { doctorChecks } from "./lib/doctor";
 import { parseStatus } from "./lib/status";
 import {
+  hashDir,
+  planPackActions,
+  readManifest,
+  writeManifest,
+  type PackEntry,
+} from "./lib/packs";
+import {
   commandName,
   commandRelPath,
   getProvider,
@@ -333,6 +340,7 @@ function installPacks(
   const target = skillsTarget(ws, tool, know);
   const packs = listPacks(pkg);
   const installed: string[] = [];
+  const next = new Map(readManifest(target).packs.map((e) => [e.name, e]));
   for (const name of names) {
     const pack = packs.find((p) => p.name === name);
     if (!pack) {
@@ -348,8 +356,71 @@ function installPacks(
     cpSync(pack.source, dest, { recursive: true });
     installed.push(name);
     console.log(`  + ${name} (${pack.origin})`);
+    next.set(name, {
+      name,
+      origin: pack.origin,
+      source: pack.source,
+      hash: hashDir(dest),
+      updated: new Date().toISOString(),
+    });
   }
+  writeManifest(target, { packs: [...next.values()] });
   return installed;
+}
+
+function cmdSkillsUpdate(argv: string[], f: Record<string, string>): void {
+  const dir = positionals(argv)[0];
+  const ws = dir ? resolve(dir) : root;
+  const tool = f.tool ?? "opencode";
+  const know = f.knowledge ?? ".intern";
+  const pkg = pkgRoot();
+  const force = f.force === "true";
+  const target = skillsTarget(ws, tool, know);
+  const available = listPacks(pkg);
+  const manifest = readManifest(target);
+  const installedMap = new Map(manifest.packs.map((e) => [e.name, e.hash]));
+
+  let names: string[];
+  if (f.packs && f.packs !== "all") names = f.packs.split(",").map((s) => s.trim()).filter(Boolean);
+  else if (f.packs === "all") names = available.map((p) => p.name);
+  else names = manifest.packs.map((e) => e.name);
+
+  if (names.length === 0) {
+    console.log("no packs installed. Try: internify skills update --packs all --force");
+    return;
+  }
+
+  const sources = names
+    .map((n) => available.find((p) => p.name === n))
+    .filter((p): p is NonNullable<typeof p> => !!p)
+    .map((p) => ({ name: p.name, source: p.source, origin: p.origin, hash: hashDir(p.source) }));
+
+  const plan = planPackActions(names, sources, installedMap, force);
+  const next = new Map(manifest.packs.map((e) => [e.name, e]));
+  let changed = 0;
+  for (const act of plan) {
+    if (act.action === "missing" || act.action === "skip") {
+      console.log(`  ${act.action === "missing" ? "!" : "="} ${act.name}: ${act.reason}`);
+      continue;
+    }
+    const src = sources.find((s) => s.name === act.name);
+    if (!src) continue;
+    const dest = join(target, act.name);
+    mkdirSync(target, { recursive: true });
+    cpSync(src.source, dest, { recursive: true, force: true });
+    const entry: PackEntry = {
+      name: act.name,
+      origin: src.origin,
+      source: src.source,
+      hash: hashDir(dest),
+      updated: new Date().toISOString(),
+    };
+    next.set(act.name, entry);
+    changed++;
+    console.log(`  ${act.action === "create" ? "+" : "~"} ${act.name} (${act.reason})`);
+  }
+  writeManifest(target, { packs: [...next.values()] });
+  console.log(`\n${changed} pack(s) synced.`);
 }
 
 async function promptSkills(pkg: string): Promise<string[]> {
@@ -532,7 +603,8 @@ function cmdDoctor(): void {
   console.log("\nAll good.");
 }
 
-function cmdSkillsList(pkg: string): void {  const packs = listPacks(pkg);
+function cmdSkillsList(pkg: string): void {
+  const packs = listPacks(pkg);
   if (packs.length === 0) {
     console.log("no skill packs found");
     return;
@@ -768,6 +840,8 @@ Commands:
                                     [--dailyDir <dir>] [--skills all|none|a,b] [--yes]
                                     scaffold knowledge + wire the provider
   skills list                       list available skill packs
+  skills update [dir] [--tool X] [--packs all|a,b] [--force]
+                                    re-sync installed skill packs (--force = install missing)
   doctor                            check environment + task health
   commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]
                                     install the internify.* commands per provider
@@ -795,7 +869,11 @@ switch (cmd) {
     break;
   case "skills":
     if (rest[0] === "list") cmdSkillsList(pkgRoot());
-    else fail("usage: internify skills list");
+    else if (rest[0] === "update") cmdSkillsUpdate(rest.slice(1), flags(rest));
+    else
+      fail(
+        "usage: internify skills list | skills update [dir] [--tool X] [--packs all|a,b] [--force]",
+      );
     break;
   case "doctor":
     cmdDoctor();

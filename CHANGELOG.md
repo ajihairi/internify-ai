@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-10
+
+### Added
+
+- `internify skills update [dir] [--tool X] [--packs all|a,b] [--force]` —
+  re-sync installed skill packs from their local sources.
+- Pack manifest (`.internify-packs.json`) with source + content hash; unchanged
+  packs are skipped, `--force` also installs missing ones.
+
 ## [0.7.0] - 2026-09-10
 
 ### Added
