@@ -17,7 +17,7 @@ There are three kinds of "command" in internify — don't mix them up:
 
 | Command | What it does |
 |---------|--------------|
-| `/internify.work <spec-folder>` | Start/resume a task — runs the whole loop |
+| `/internify.work <spec-folder>` | Start/resume a task — scaffolds the spec if missing, then runs the loop |
 | `/internify.spec <Name>` | Scaffold a new spec, then author its SPECmd/Plan/Task |
 | `/internify.boot` | Collect/refresh the session context from disk |
 | `/internify.status` | Show the current phase, active step, and pending reads |
@@ -48,6 +48,7 @@ tool.
 | Tool | What it does |
 |------|--------------|
 | `intern_boot` | Collect session context → `CONTEXT.md` |
+| `intern_spec` | Scaffold a new spec folder from the template |
 | `intern_index` | Scan a spec → `INDEX.md`, start/resume a task |
 | `intern_context` | Return a minimal slice (one section / one function) |
 | `intern_step` | Declare the active step + anchor |
@@ -65,7 +66,7 @@ Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 | Command | What it does |
 |---------|--------------|
 | `internify init [dir] [--tool …] [--profile …] [--skills …]` | Scaffold + wire a provider |
-| `internify spec new <Name> [--role <role>]` | Scaffold a spec folder from the template |
+| `internify spec new <Name> [--role <role>] [--if-missing]` | Scaffold a spec folder from the template |
 | `internify spec list` | List spec folders under the plans directory |
 | `internify boot` | Collect session context → `state/CONTEXT.md` |
 | `internify index <spec-folder>` | Build `INDEX.md`, start/resume a task |

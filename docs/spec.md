@@ -17,11 +17,15 @@ Scaffold one instead of copying by hand:
 ```bash
 internify spec new FeatureX            # -> plans/FeatureX/{SPECmd,Plan,Task}.md
 internify spec new Module/FeatureX     # nested
+internify spec new FeatureX --if-missing   # fill only what's absent, never overwrite
 ```
 
 In chat, use `/internify.spec <Name>`: it scaffolds the folder, interviews you,
 and drafts the three files. Both fill in `<SpecName>`, `<role>`, and
 `<YYYY-MM-DD>`.
+
+`/internify.work <spec-folder>` scaffolds a missing spec for you — if the folder
+isn't there, it runs `internify spec new --if-missing` before indexing.
 
 ## What the harness does with a spec
 

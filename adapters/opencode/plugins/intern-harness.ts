@@ -11,6 +11,7 @@ import {
   extractSummary,
   pickLatestDaily,
 } from "../../../core/lib/boot";
+import { findSpecTemplate, newSpec, specNameFromPath } from "../../../core/lib/spec";
 import {
   loadLedger,
   saveLedger,
@@ -221,6 +222,39 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           saveLedger(knowledge, ledger);
           setActive(knowledge, taskId, specRel);
           return `INDEX built. task=${taskId} reads=${idx.requiredReads.length}`;
+        },
+      }),
+
+      intern_spec: tool({
+        description:
+          "Scaffold a new spec folder from the template (fills name, date, owner).",
+        args: {
+          name: tool.schema
+            .string()
+            .describe("Spec name or spec-folder path (relative to the workspace root)."),
+          role: tool.schema.string().optional(),
+          ifMissing: tool.schema.boolean().optional(),
+        },
+        async execute(args) {
+          const templatesDir = existsSync(join(knowledge, "05-templates"))
+            ? join(knowledge, "05-templates")
+            : undefined;
+          const template = findSpecTemplate(plans, templatesDir);
+          if (!template) {
+            throw new Error("spec template not found. Run internify update (or init).");
+          }
+          const name = specNameFromPath(root, plans, args.name);
+          const res = newSpec({
+            template,
+            plansDir: plans,
+            name,
+            role: args.role,
+            ifMissing: args.ifMissing,
+          });
+          if (res.files.length === 0) return `spec ${res.name} already complete.`;
+          return `created spec ${res.name}: ${res.files
+            .map((f) => relative(root, f).split("\\").join("/"))
+            .join(", ")}`;
         },
       }),
 

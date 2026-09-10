@@ -12,7 +12,7 @@ to `<root>/.intern`; override via `<root>/internify.json`.
 | `internify doctor` | Check environment + task health |
 | `internify commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]` | Generate the `internify.*` commands per provider |
 | `internify update [--force]` | Refresh spec templates (`--force` also refreshes `rules.md` + `roles/`) |
-| `internify spec new <Name> [--role <role>]` | Scaffold a spec folder from the template (`<SpecName>`, `<role>`, `<YYYY-MM-DD>` filled) |
+| `internify spec new <Name> [--role <role>] [--if-missing]` | Scaffold a spec folder from the template (`<SpecName>`, `<role>`, `<YYYY-MM-DD>` filled; `--if-missing` fills only absent files and never overwrites) |
 | `internify spec list` | List spec folders under the plans directory |
 | `internify boot` | Collect session context → `state/CONTEXT.md` |
 | `internify index <spec-folder>` | Build `INDEX.md`, start/resume a task |

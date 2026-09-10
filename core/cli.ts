@@ -60,7 +60,7 @@ import {
   writeContext,
 } from "./lib/io";
 import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
-import { findSpecTemplate, newSpec } from "./lib/spec";
+import { findSpecTemplate, newSpec, specNameFromPath } from "./lib/spec";
 
 const root = process.env.INTERNIFY_ROOT
   ? resolve(process.env.INTERNIFY_ROOT)
@@ -462,25 +462,27 @@ async function promptSkills(pkg: string): Promise<string[]> {
 const WORK_BODY_TOOLS = `Work on the spec folder: {ARGS}
 
 Steps:
-1. Call \`intern_index\` with \`specRoot="{ARGS}"\`.
-2. For every required read listed by the harness, use the \`read\` tool. Required reads MUST be read with \`read\` — \`intern_context\` does NOT satisfy Gate 1. Use \`intern_context\` only for extra, non-required slices.
-3. For each plan step in the task's LEDGER (call \`intern_status\` to see it), in order:
+1. If the spec folder does not exist yet, scaffold it first: call \`intern_spec\` with \`name="{ARGS}"\`. If it already exists, skip this.
+2. Call \`intern_index\` with \`specRoot="{ARGS}"\`.
+3. For every required read listed by the harness, use the \`read\` tool. Required reads MUST be read with \`read\` — \`intern_context\` does NOT satisfy Gate 1. Use \`intern_context\` only for extra, non-required slices.
+4. For each plan step in the task's LEDGER (call \`intern_status\` to see it), in order:
    a. Call \`intern_step\` with the step id and its anchor (recorded in LEDGER.md).
    b. Edit only files in Scope.
    c. Call \`intern_evidence\` with claim + proof + result.
-4. When all steps pass, call \`intern_close\`.`;
+5. When all steps pass, call \`intern_close\`.`;
 
 const WORK_BODY_CLI = `Work on the spec folder: {ARGS}
 
 This workspace uses internify. Use the \`internify\` CLI.
 
 Steps:
-1. \`internify index {ARGS}\`
-2. Read every required read with \`internify read <path>\` (this marks it done).
-3. \`internify step <id> <anchor>\`
-4. Edit only files in scope; check with \`internify gate edit <file>\` (exit 1 = blocked).
-5. \`internify evidence <step> --claim "..." --proof "..." --result pass\`
-6. When all steps pass: \`internify close\`.`;
+1. If the spec folder does not exist yet: \`internify spec new {ARGS} --if-missing\`.
+2. \`internify index {ARGS}\`
+3. Read every required read with \`internify read <path>\` (this marks it done).
+4. \`internify step <id> <anchor>\`
+5. Edit only files in scope; check with \`internify gate edit <file>\` (exit 1 = blocked).
+6. \`internify evidence <step> --claim "..." --proof "..." --result pass\`
+7. When all steps pass: \`internify close\`.`;
 
 const BOOT_BODY_TOOLS =
   "Collect the session context: call `intern_boot` (no arguments) and show the resulting brief to the user.";
@@ -860,18 +862,30 @@ function specTemplatesDir(): string | undefined {
   return existsSync(advanced) ? advanced : undefined;
 }
 
-function cmdSpecNew(name: string, f: Record<string, string>): void {
-  if (!name) fail("usage: internify spec new <Name> [--role <role>]");
+function cmdSpecNew(nameArg: string, f: Record<string, string>): void {
+  if (!nameArg) fail("usage: internify spec new <Name> [--role <role>] [--if-missing]");
   const template = findSpecTemplate(plans, specTemplatesDir());
   if (!template) {
     fail("spec template not found. Run: internify update (or internify init)");
   }
   try {
-    const res = newSpec({ template, plansDir: plans, name, role: f.role });
+    const name = specNameFromPath(root, plans, nameArg);
+    const res = newSpec({
+      template,
+      plansDir: plans,
+      name,
+      role: f.role,
+      ifMissing: f["if-missing"] === "true",
+    });
     const rel = relative(root, res.dir).split("\\").join("/");
-    console.log(`created spec ${res.name}`);
+    console.log(
+      res.files.length === 0 ? `spec ${res.name} already complete` : `created spec ${res.name}`,
+    );
     for (const file of res.files) {
       console.log(`  + ${relative(root, file).split("\\").join("/")}`);
+    }
+    for (const file of res.skipped) {
+      console.log(`  = ${relative(root, file).split("\\").join("/")}`);
     }
     console.log(
       `\nNext:\n  1. fill the three files (status: draft)\n  2. start work: /internify.work ${rel}`,
@@ -906,7 +920,8 @@ Commands:
   commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]
                                     install the internify.* commands per provider
   update [--force]                  refresh spec templates (roles/rules with --force)
-  spec new <Name> [--role <role>]   scaffold a new spec folder from the template
+  spec new <Name> [--role <role>] [--if-missing]
+                                    scaffold a spec folder from the template
   spec list                         list spec folders under the plans dir
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task

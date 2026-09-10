@@ -354,6 +354,10 @@ Scaffold a new one with `internify spec new <Name>` (CLI) or `/internify.spec <N
 `/internify.spec` then interviews you and drafts the three files. Start it with
 `/internify.work <spec-folder>`.
 
+`/internify.work` also scaffolds a missing spec for you: if the spec folder is
+not there yet, it runs `internify spec new` (via `intern_spec`) before indexing.
+Use `--if-missing` to fill only the absent files without touching existing ones.
+
 ## Tools
 
 Registered by the opencode adapter:
@@ -361,6 +365,7 @@ Registered by the opencode adapter:
 | Tool | What it does |
 |------|--------------|
 | `intern_boot` | Collect session context → write `CONTEXT.md` |
+| `intern_spec` | Scaffold a new spec folder from the template |
 | `intern_index` | Scan a spec folder → build `INDEX.md`, start/resume a task |
 | `intern_context` | Return a minimal slice (one section / one function) |
 | `intern_step` | Declare the active step + anchor |

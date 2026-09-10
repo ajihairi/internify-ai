@@ -10,12 +10,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- `internify spec new <Name> [--role <role>]` + `internify spec list` — scaffold a
-  spec folder from the template. Fills `<SpecName>`, `<role>`, and
-  `<YYYY-MM-DD>`; supports nested names (`Module/Feature`); refuses to overwrite
-  an existing folder.
+- `internify spec new <Name> [--role <role>] [--if-missing]` + `internify spec list`
+  — scaffold a spec folder from the template. Fills `<SpecName>`, `<role>`, and
+  `<YYYY-MM-DD>`; supports nested names (`Module/Feature`) and spec-folder paths
+  relative to the workspace root; refuses to overwrite an existing folder unless
+  `--if-missing` is set (then it fills only the absent files).
 - `/internify.spec <Name>` chat command — scaffolds the folder, interviews the
   user, and drafts `SPECmd.md` / `Plan.md` / `Task.md` (all providers).
+- `intern_spec` tool (opencode) + `/internify.work` now scaffolds a missing spec
+  before indexing.
 
 ## [0.8.0] - 2026-09-10
 
