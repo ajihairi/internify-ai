@@ -1,11 +1,24 @@
 {
   "name": "internify-ai",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
   "description": "A disk-backed engineer loop for AI agents: context on disk, layered gates, no hallucination.",
   "license": "MIT",
   "author": "Hamzhya Salsatinnov Hairy",
-  "keywords": ["ai", "agent", "harness", "context", "workflow", "opencode"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ajihairi/internify-ai.git"
+  },
+  "homepage": "https://github.com/ajihairi/internify-ai#readme",
+  "bugs": {
+    "url": "https://github.com/ajihairi/internify-ai/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "bun": ">=1.0.0"
+  },
+  "keywords": ["ai", "agent", "harness", "context", "workflow", "opencode", "claude", "cli"],
   "bin": {
     "internify": "core/cli.ts"
   },

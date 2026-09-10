@@ -14,6 +14,10 @@ import { loadPaths } from "../../core/lib/config";
 import { canEdit, canBash } from "../../core/lib/gates";
 
 const root = process.env.INTERNIFY_ROOT || process.cwd();
+
+// Kill switch — same semantics as the opencode adapter.
+if (process.env.INTERN_HARNESS === "off") process.exit(0);
+
 const { knowledge } = loadPaths(root);
 
 let input: Record<string, unknown> = {};

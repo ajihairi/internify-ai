@@ -16,6 +16,7 @@ and records evidence.
 
 ## Table of contents
 
+- [Start here (new to this?)](#start-here-new-to-this)
 - [Why](#why)
 - [How it works](#how-it-works)
 - [Walkthrough: from zero](#walkthrough-from-zero)
@@ -27,6 +28,95 @@ and records evidence.
 - [Contract](#contract)
 - [Articles](#articles)
 - [License](#license)
+
+---
+
+## Start here (new to this?)
+
+internify is **not an AI**. It is a small add-on that plugs into the AI coding
+tool you already use (opencode, Claude Code, …). It does two things:
+
+- keeps the agent's context **on disk** (so a new session never loses it), and
+- **blocks** edits that are not grounded (no scope, no step, no evidence).
+
+You still talk to your normal AI tool. internify just makes it behave.
+
+### What you need
+
+- An AI coding tool: [opencode](https://opencode.ai) or Claude Code.
+- [Bun](https://bun.sh) — install with `curl -fsSL https://bun.sh/install | bash`.
+
+### The 60-second version
+
+```bash
+# 1. install the CLI (once)
+npm i -g internify-ai
+# or from GitHub:
+bun add -g git+ssh://git@github.com/ajihairi/internify-ai.git
+
+# 2. go to your workspace (it can be just your code repo)
+cd my-workspace
+
+# 3. set it up for your tool
+internify init --tool opencode     # or: --tool claude   (or --tool none = CLI only)
+
+# 4. restart your AI tool, then work as usual
+```
+
+That's it. `init` adds `.intern/` and `AGENTS.md` next to your code and wires the
+provider. It never overwrites files that already exist.
+
+### "My workspace only has a code repo — is that ok?"
+
+Yes. Before:
+
+```
+my-workspace/
+└── my-project/        ← just your code
+```
+
+After `internify init`:
+
+```
+my-workspace/
+├── .intern/           ← internify knowledge (rules, roles, plans, daily, state)
+├── AGENTS.md          ← instructions the AI reads
+├── opencode.json      ← opencode wiring (plugin)
+├── .claude/           ← claude wiring (PreToolUse hook)
+└── my-project/        ← your code, untouched
+```
+
+Want the AI files **outside** the repo (keep the repo 100% clean)? Use Mode B —
+see [Quick start → Optional: project beside the tool](#quick-start).
+
+### What using it feels like
+
+Open your AI tool and start a spec:
+
+```text
+/work .intern/plans/FeatureX
+```
+
+The agent can only edit files in scope, must declare a step, and must record
+evidence before closing. You don't do anything special — the tool enforces it.
+
+### Turning it off
+
+internify watches one environment variable: `INTERN_HARNESS`.
+
+```bash
+INTERN_HARNESS=off opencode     # just this run
+export INTERN_HARNESS=off       # for the whole shell session
+```
+
+When it is `off`:
+
+- the **opencode** plugin registers no hooks (no gating),
+- the **Claude** hook exits immediately (no gating),
+- the **CLI** still works normally.
+
+Use it when the gates get in the way, or to compare behavior with/without the
+harness. Unset the variable to turn it back on.
 
 ---
 
@@ -62,15 +152,15 @@ turn. New session or compaction → no loss of grounding.
 
 Set up internify in an empty workspace, with your project cloned next to it.
 
-![Setting up internify in an empty workspace](./docs/assets/from-zero.gif)
+![Setting up internify in an empty workspace](https://raw.githubusercontent.com/ajihairi/internify-ai/main/docs/assets/from-zero.gif)
 
 Then every work session runs the same enforced loop:
 
-![The enforced loop: read → step → edit → evidence → close](./docs/assets/session.gif)
+![The enforced loop: read → step → edit → evidence → close](https://raw.githubusercontent.com/ajihairi/internify-ai/main/docs/assets/session.gif)
 
 Inside opencode, the agent drives the same loop through `/work`:
 
-![opencode session running /work](./docs/assets/opencode-session.png)
+![opencode session running /work](https://raw.githubusercontent.com/ajihairi/internify-ai/main/docs/assets/opencode-session.png)
 
 (The clips are illustrative transcripts; the underlying output is real.)
 
