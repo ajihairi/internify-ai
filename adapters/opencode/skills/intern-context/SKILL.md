@@ -10,12 +10,13 @@ gets lost in a new session.
 
 ## Steps
 
-1. Call the `intern_boot` tool (no arguments). It reads:
-   - a pointer to `rules.md` (the rules themselves are loaded via `AGENTS.md`)
-   - the latest daily log in `.intern/daily/`
-   - `.intern/state/active.json` + LEDGER (if any)
-   - the available specs under `.intern/plans/`
-   and writes `.intern/state/CONTEXT.md`.
+1. Call the `intern_boot` tool (no arguments). It reads from the configured
+   **knowledge dir** (`.intern` by default; configurable via `internify.json`):
+   - a pointer to `rules.md`
+   - the latest daily log in `daily/`
+   - `state/active.json` + LEDGER (if any)
+   - the available specs under the plans dir
+   and writes `state/CONTEXT.md`.
 
 2. Show a 5-line brief to the user: last focus, active task + phase, pending
    reads, available specs, next actions.
@@ -25,9 +26,10 @@ gets lost in a new session.
 
 ## Fallback (plugin off or `intern_boot` fails)
 
-Do the same manually, producing identical output:
+Do the same manually, producing identical output. All paths are relative to the
+knowledge dir:
 1. Read `rules.md`.
-2. Find and read the latest daily file in `.intern/daily/` (`DD-MM-YYYY.md`).
-3. Read `.intern/state/active.json` and its LEDGER if present.
-4. List the folders under `.intern/plans/`.
-5. Write `.intern/state/CONTEXT.md` with the write tool (same schema).
+2. Find and read the latest daily file in `daily/` (`DD-MM-YYYY.md`).
+3. Read `state/active.json` and its LEDGER if present.
+4. List the folders under the plans dir.
+5. Write `state/CONTEXT.md` with the write tool (same schema).
