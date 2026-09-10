@@ -7,7 +7,8 @@ to `<root>/.intern`; override via `<root>/internify.json`.
 
 | Command | Description |
 |---------|-------------|
-| `internify init [dir] [--tool opencode\|claude\|none] [--knowledge <name>] [--target <dir>] [--plansDir <dir>]` | Scaffold knowledge + wire the provider |
+| `internify init [dir] [--tool opencode\|claude\|none] [--knowledge <name>] [--target <dir>] [--plansDir <dir>] [--skills all\|none\|a,b] [--yes]` | Scaffold knowledge + wire the provider (+ optional skill packs) |
+| `internify skills list` | List available skill packs |
 | `internify boot` | Collect session context → `state/CONTEXT.md` |
 | `internify index <spec-folder>` | Build `INDEX.md`, start/resume a task |
 | `internify read <path>` | Print a file and mark a required read as done |

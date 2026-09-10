@@ -1,0 +1,33 @@
+# Changelog
+
+All notable changes to this project are documented here.
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Skill packs: bundled `packs/status` + resolution of external packs
+  (`~/.config/opencode/skills`, `~/.claude/skills`, `~/.agents/skills`).
+- `internify init --skills all|none|a,b` and interactive confirmation;
+  `--yes` to skip prompts.
+- `internify skills list`.
+- Repo hygiene: `AGENTS.md`, per-agent shims, `CONTRIBUTING.md`,
+  `CODE_OF_CONDUCT.md`, `CHANGELOG.md`.
+- Docs site (Material for MkDocs) with `structure` and `skills` pages.
+
+### Changed
+
+- `docs.yml` deploys on every push; added `ci.yml` (tests + typecheck + smoke).
+
+## [0.1.0] - 2026-09-10
+
+### Added
+
+- Disk-backed loop: `CONTEXT` / `INDEX` / `LEDGER` / `EVIDENCE`.
+- Layered gates: read → scope/step → anchor → bash → evidence.
+- opencode adapter (plugin + skill + `/work`) and a Claude Code `PreToolUse` hook.
+- Tool-agnostic CLI: `boot/index/read/context/step/evidence/close/status/override/gate`.
+- `internify init` (scaffold + provider wiring), Mode A/B, `INTERN_HARNESS=off`.
+- Published to npm.

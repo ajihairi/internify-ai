@@ -1,6 +1,6 @@
 {
   "name": "internify-ai",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A disk-backed engineer loop for AI agents: context on disk, layered gates, no hallucination.",
   "license": "MIT",
   "author": "Hamzhya Salsatinnov Hairy",
@@ -30,6 +30,7 @@
     "adapters/opencode/command",
     "adapters/claude",
     "template",
+    "packs",
     "CONTRACT.md",
     "README.md",
     "LICENSE"

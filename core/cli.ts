@@ -19,8 +19,10 @@
  * <root>/.intern; override both root and target via <root>/internify.json.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, cpSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, cpSync, readdirSync, statSync } from "node:fs";
 import { join, resolve, relative, isAbsolute, dirname } from "node:path";
+import { homedir } from "node:os";
+import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { buildIndex } from "./lib/index-builder";
 import { canEdit, canStep, canClose, canBash } from "./lib/gates";
@@ -265,6 +267,121 @@ function pkgRoot(): string {
   return dirname(dirname(fileURLToPath(import.meta.url)));
 }
 
+type Pack = { name: string; source: string; origin: "bundled" | "external" };
+
+function packRoots(): string[] {
+  return [
+    join(homedir(), ".config", "opencode", "skills"),
+    join(homedir(), ".claude", "skills"),
+    join(homedir(), ".agents", "skills"),
+  ];
+}
+
+function listPacks(pkg: string): Pack[] {
+  const found = new Map<string, { source: string; origin: "bundled" | "external" }>();
+  const bundled = join(pkg, "packs");
+  if (existsSync(bundled)) {
+    for (const e of readdirSync(bundled)) {
+      const p = join(bundled, e);
+      if (e !== "README.md" && existsSync(p) && statSync(p).isDirectory()) {
+        found.set(e, { source: p, origin: "bundled" });
+      }
+    }
+  }
+  for (const root of packRoots()) {
+    if (!existsSync(root)) continue;
+    for (const e of readdirSync(root)) {
+      const p = join(root, e);
+      if (existsSync(p) && statSync(p).isDirectory() && !found.has(e)) {
+        found.set(e, { source: p, origin: "external" });
+      }
+    }
+  }
+  return [...found.entries()].map(([name, v]) => ({ name, ...v }));
+}
+
+function skillsTarget(ws: string, tool: string, know: string): string {
+  if (tool === "opencode") return join(ws, ".opencode", "skills");
+  if (tool === "claude") return join(ws, ".claude", "skills");
+  return join(ws, know, "skills");
+}
+
+function installPacks(
+  ws: string,
+  tool: string,
+  know: string,
+  pkg: string,
+  names: string[],
+): string[] {
+  const target = skillsTarget(ws, tool, know);
+  const packs = listPacks(pkg);
+  const installed: string[] = [];
+  for (const name of names) {
+    const pack = packs.find((p) => p.name === name);
+    if (!pack) {
+      console.log(`  ! unknown pack: ${name}`);
+      continue;
+    }
+    const dest = join(target, name);
+    if (existsSync(dest)) {
+      console.log(`  = ${name} (already present)`);
+      continue;
+    }
+    mkdirSync(target, { recursive: true });
+    cpSync(pack.source, dest, { recursive: true });
+    installed.push(name);
+    console.log(`  + ${name} (${pack.origin})`);
+  }
+  return installed;
+}
+
+async function promptSkills(pkg: string): Promise<string[]> {
+  const packs = listPacks(pkg);
+  if (packs.length === 0) return [];
+  if (!process.stdin.isTTY) {
+    console.log(
+      `skill packs available: ${packs.map((p) => p.name).join(", ")} (skipped; use --skills)`,
+    );
+    return [];
+  }
+  console.log("\nOptional skill packs:");
+  packs.forEach((p, i) => console.log(`  ${i + 1}. ${p.name} (${p.origin})`));
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const ans = (
+      await rl.question("Install packs? [a]ll / [s]elect / [n]one (default n): ")
+    )
+      .trim()
+      .toLowerCase();
+    if (ans === "a" || ans === "all") return packs.map((p) => p.name);
+    if (ans === "s" || ans === "select") {
+      const sel = (await rl.question("Numbers or names (comma-separated): ")).trim();
+      const names: string[] = [];
+      for (const part of sel.split(/[,\s]+/).filter(Boolean)) {
+        const n = Number(part);
+        if (!Number.isNaN(n) && n >= 1 && n <= packs.length) names.push(packs[n - 1].name);
+        else if (packs.some((p) => p.name === part)) names.push(part);
+      }
+      return names;
+    }
+  } finally {
+    rl.close();
+  }
+  return [];
+}
+
+function cmdSkillsList(pkg: string): void {
+  const packs = listPacks(pkg);
+  if (packs.length === 0) {
+    console.log("no skill packs found");
+    return;
+  }
+  for (const p of packs) {
+    console.log(`${p.origin === "bundled" ? "*" : "-"} ${p.name}  (${p.origin})  ${p.source}`);
+  }
+  console.log("\n* bundled, - external");
+}
+
 function positionals(argv: string[]): string[] {
   const out: string[] = [];
   for (let i = 0; i < argv.length; i++) {
@@ -277,7 +394,7 @@ function positionals(argv: string[]): string[] {
   return out;
 }
 
-function cmdInit(argv: string[], f: Record<string, string>): void {
+async function cmdInit(argv: string[], f: Record<string, string>): Promise<void> {
   const targetArg = positionals(argv)[0];
   const ws = targetArg ? resolve(targetArg) : root;
   const tool = f.tool ?? "opencode";
@@ -365,6 +482,19 @@ function cmdInit(argv: string[], f: Record<string, string>): void {
     fail(`unknown tool: ${tool}`);
   }
 
+  let skillNames: string[] = [];
+  if (f.skills === "all") {
+    skillNames = listPacks(pkg).map((p) => p.name);
+  } else if (f.skills && f.skills !== "none") {
+    skillNames = f.skills.split(",").map((s) => s.trim()).filter(Boolean);
+  } else if (f.skills === undefined && !f.yes) {
+    skillNames = await promptSkills(pkg);
+  }
+  if (skillNames.length > 0) {
+    console.log(`\nSkill packs -> ${skillsTarget(ws, tool, know)}`);
+    installPacks(ws, tool, know, pkg, skillNames);
+  }
+
   console.log(
     `\nDone. Next:\n  1. restart the AI tool (config is not hot-reloaded)\n  2. bootstrap:  internify boot\n  3. start work: /work ${know}/plans/<SpecName>   (or the CLI)`,
   );
@@ -376,7 +506,9 @@ function usage(): void {
 Commands:
   init [dir] [--tool opencode|claude|none] [--knowledge .intern]
                                     [--target <projectDir>] [--plansDir <dir>]
+                                    [--skills all|none|a,b] [--yes]
                                     scaffold knowledge + wire the provider
+  skills list                       list available skill packs
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task
   read <path>                       print a file and mark a required read as done
@@ -396,7 +528,11 @@ Env: INTERNIFY_ROOT (default: cwd). Config: <root>/internify.json
 const [cmd, ...rest] = process.argv.slice(2);
 switch (cmd) {
   case "init":
-    cmdInit(rest, flags(rest));
+    await cmdInit(rest, flags(rest));
+    break;
+  case "skills":
+    if (rest[0] === "list") cmdSkillsList(pkgRoot());
+    else fail("usage: internify skills list");
     break;
   case "boot":
     cmdBoot();

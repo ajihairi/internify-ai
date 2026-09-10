@@ -45,14 +45,37 @@ They are complementary:
 
 ## Installing a pack
 
-Copy the pack's skill/command folders into your provider's directory, or keep
-them in a central skills path your tool already scans. `internify init` (future)
-can install a chosen set:
+`internify init` offers packs and installs the ones you confirm:
 
 ```bash
+internify init --tool opencode              # interactive: all / select / none
+internify init --tool opencode --skills all
+internify init --tool opencode --skills none
 internify init --tool opencode --skills superpowers,caveman
+internify init --tool opencode --yes        # skip prompts (installs none)
 ```
 
-!!! note "Roadmap"
-    Skill-pack installation is planned, not implemented yet. Today you install
-    packs the same way you always have for your tool.
+List what is available:
+
+```bash
+internify skills list
+```
+
+### Resolution
+
+A pack named `<name>` is found, in order, from:
+
+1. **bundled** — `packs/<name>/` inside the internify package
+2. **external** — `~/.config/opencode/skills/<name>`, `~/.claude/skills/<name>`,
+   `~/.agents/skills/<name>`
+
+internify only **copies** external packs — it does not vendor third-party
+content. Existing packs in the target are never overwritten.
+
+Install target:
+
+| Provider | Target |
+|----------|--------|
+| opencode | `<workspace>/.opencode/skills/<name>/` |
+| claude | `<workspace>/.claude/skills/<name>/` |
+| none | `<knowledge>/skills/<name>/` |
