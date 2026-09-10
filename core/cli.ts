@@ -305,6 +305,23 @@ function cmdInit(argv: string[], f: Record<string, string>): void {
     console.log("AGENTS.md already exists — left untouched");
   }
 
+  if (f.target || f.knowledge || f.plansDir) {
+    const cfgPath = join(ws, "internify.json");
+    let cfg: Record<string, unknown> = {};
+    if (existsSync(cfgPath)) {
+      try {
+        cfg = JSON.parse(readFileSync(cfgPath, "utf8")) as Record<string, unknown>;
+      } catch {
+        /* keep default */
+      }
+    }
+    if (f.target) cfg.target = f.target;
+    if (f.knowledge) cfg.knowledge = f.knowledge;
+    if (f.plansDir) cfg.plansDir = f.plansDir;
+    writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
+    console.log("wrote internify.json");
+  }
+
   if (tool === "opencode") {
     const plugin = join(pkg, "adapters/opencode/plugins/intern-harness.ts");
     const cfgPath = join(ws, "opencode.json");
@@ -358,6 +375,7 @@ function usage(): void {
 
 Commands:
   init [dir] [--tool opencode|claude|none] [--knowledge .intern]
+                                    [--target <projectDir>] [--plansDir <dir>]
                                     scaffold knowledge + wire the provider
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task

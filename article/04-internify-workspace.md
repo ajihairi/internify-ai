@@ -73,7 +73,7 @@ internify-ai/
 │   └── smoke.ts
 ├── adapters/
 │   ├── opencode/            ← plugin + skill + command
-│   └── claude/              ← (later) hooks
+│   └── claude/              ← PreToolUse hook
 ├── template/                ← scaffolded into a project
 │   └── .intern/
 │       ├── rules.md
@@ -179,26 +179,34 @@ Config (at the workspace root, e.g. `parent/internify.json`):
 
 ---
 
-## 5. `internify init` — scaffold (planned)
+## 5. `internify init` — scaffold
 
 ```bash
-# Mode A: knowledge goes into the project
-internify init ../projectA
+# scaffold into the current workspace, wire opencode
+internify init --tool opencode
 
-# Mode A + pick a tool
-internify init ../projectA --tool opencode
+# scaffold into another dir, wire Claude Code
 internify init ../projectA --tool claude
 
-# Mode B: knowledge stays in the workspace, project stays clean
-internify init ../projectA --workspace
+# CLI only (no provider wiring)
+internify init --tool none
+
+# non-standard layout via internify.json
+internify init --knowledge intern --plansDir superpowers/plans --target my-project
 ```
 
-What `init` will do:
+What `init` does (and does **not**):
 
-1. Create `.intern/{rules,roles,plans,daily,state}` (from `template/`).
-2. Copy the chosen adapter (e.g. `.opencode/` with plugin + skill + command).
-3. Write `internify.json` (target root, knowledge location, tool).
-4. Print the next steps (restart the tool, run boot).
+1. Creates `.intern/{rules,roles,plans,daily,state}` from `template/`
+   (**never overwrites** an existing knowledge dir).
+2. Writes `AGENTS.md` if absent.
+3. Writes/merges `internify.json` when `--target` / `--knowledge` / `--plansDir`
+   are given.
+4. Wires the provider:
+   - `--tool opencode` → adds the adapter plugin to `opencode.json`
+   - `--tool claude` → adds a `PreToolUse` hook to `.claude/settings.json`
+   - `--tool none` → no provider wiring (use the CLI)
+5. Prints the next steps (restart the tool, run boot).
 
 ---
 
@@ -278,9 +286,9 @@ Effect: `myapp` stays a project; internify becomes a tool used repeatedly.
 1. ✅ Extract `core/lib` → add `cli.ts`.
 2. ✅ Move the contract into `CONTRACT.md`.
 3. ✅ Write `template/` (including `plans/_template/SpecName/`).
-4. ⏳ Build `internify init` (Mode A first, then Mode B).
+4. ✅ Build `internify init` (Mode A first, then Mode B).
 5. ✅ Add the target/knowledge split (Mode B).
-6. ⏳ Add a second adapter (Claude Code) to prove tool-agnosticism.
+6. ✅ Add a second adapter (Claude Code) to prove tool-agnosticism.
 
 ---
 
