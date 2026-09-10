@@ -14,6 +14,7 @@ to `<root>/.intern`; override via `<root>/internify.json`.
 | `internify update [--force]` | Refresh spec templates (`--force` also refreshes `rules.md` + `roles/`) |
 | `internify spec new <Name> [--role <role>] [--if-missing]` | Scaffold a spec folder from the template (`<SpecName>`, `<role>`, `<YYYY-MM-DD>` filled; `--if-missing` fills only absent files and never overwrites) |
 | `internify spec list` | List spec folders under the plans directory |
+| `internify scan` | Cache project AI files (`AGENTS.md`, `docs/`, skills, ...) into `state/` |
 | `internify boot` | Collect session context → `state/CONTEXT.md` |
 | `internify index <spec-folder>` | Build `INDEX.md`, start/resume a task |
 | `internify read <path>` | Print a file and mark a required read as done |

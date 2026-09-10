@@ -39,6 +39,8 @@ Keep the project clean, or point at a non-standard knowledge dir, with
 | `knowledge` | where the knowledge dir lives (relative to root, or absolute) |
 | `plansDir` | plans folder, relative to `knowledge` (default `plans`) |
 | `dailyDir` | daily log folder, relative to `knowledge` (default `daily`) |
+| `scan` | extra project files/dirs to include in the scan (relative to `target`) |
+| `scanIgnore` | extra paths to skip during the scan (relative to `target`) |
 
 You can also create it via init:
 
@@ -81,8 +83,36 @@ See [Structure profiles](structure.md).
 └── state/                       ← runtime
     ├── active.json
     ├── CONTEXT.md
+    ├── project-files.json       ← scan manifest (path + hash)
+    ├── PROJECT_CONTEXT.md       ← scanned project AI files (bundle)
     └── tasks/<taskId>/{INDEX.md,LEDGER.md,EVIDENCE.md}
 ```
 
 `state/active.json` is machine-local (git-ignore it). Task artifacts are meant to
 be committed.
+
+## Project AI context (`internify scan`)
+
+internify can discover AI-relevant files **inside the project code** (`target`)
+and inject them into the session context: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`,
+`OPENCODE.md`, `docs/`, `.cursor/rules/`, `.claude/`, `.opencode/`, `.github/`,
+`skills/`, and `*.skills.md` / `*.ai.md`.
+
+- **Whitelist, not a full-tree scan.** `Pods/`, `node_modules`, `.git`, build
+  and vendor dirs are skipped; depth is capped.
+- **Lazy + cached.** `boot` walks the project once if no cache exists, then
+  only re-reads files whose size or mtime changed. Full content is written to
+  `state/PROJECT_CONTEXT.md` only when something changed.
+- **Explicit refresh** whenever you want:
+
+  ```bash
+  internify scan
+  ```
+
+- **Tune it** in `internify.json`: `scan` (extra includes) and `scanIgnore`
+  (extra skips).
+- **Off switch**: `INTERN_SCAN=off` disables the auto-scan at boot (explicit
+  `internify scan` still works).
+- The discovered file list appears in `CONTEXT.md` under **Project AI files**;
+  the full contents live in `state/PROJECT_CONTEXT.md`. Discovered docs are
+  read-only inputs, never rewritten.

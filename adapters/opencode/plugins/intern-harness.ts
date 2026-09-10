@@ -12,6 +12,7 @@ import {
   pickLatestDaily,
 } from "../../../core/lib/boot";
 import { findSpecTemplate, newSpec, specNameFromPath } from "../../../core/lib/spec";
+import { syncProjectContext } from "../../../core/lib/discover";
 import {
   loadLedger,
   saveLedger,
@@ -24,6 +25,7 @@ import {
   appendDaily,
   listDaily,
   listSpecs,
+  loadProjectManifest,
   writeContext,
 } from "../../../core/lib/io";
 import { readFileSync, existsSync } from "node:fs";
@@ -164,9 +166,15 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
     tool: {
       intern_boot: tool({
         description:
-          "Collect session context from disk and write .intern/state/CONTEXT.md. Call once per new session.",
+          "Collect session context from disk (incl. scanned project AI files) and write .intern/state/CONTEXT.md. Call once per new session.",
         args: {},
         async execute() {
+          if (process.env.INTERN_SCAN !== "off") {
+            const relKnow = relative(target, knowledge);
+            const extraIgnore = paths.scanIgnore ?? [];
+            if (relKnow && !relKnow.startsWith("..")) extraIgnore.push(relKnow);
+            syncProjectContext(knowledge, target, extraIgnore, paths.scan ?? []);
+          }
           const dailies = listDaily(knowledge, daily);
           const latest = pickLatestDaily(dailies);
           let dailyText = "";
@@ -179,12 +187,14 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           }
           const active = getActive(knowledge);
           const ledger = active ? loadLedger(knowledge, active.taskId) : null;
+          const projectFiles = loadProjectManifest(knowledge).map((e) => e.path);
           const pack = buildContextPack({
             generated: nowIso(),
             latestDaily: latest,
             dailySummary: extractSummary(dailyText),
             ledger,
             specs: listSpecs(knowledge, plans),
+            projectFiles,
           });
           writeContext(knowledge, pack);
           return pack;
@@ -255,6 +265,30 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           return `created spec ${res.name}: ${res.files
             .map((f) => relative(root, f).split("\\").join("/"))
             .join(", ")}`;
+        },
+      }),
+
+      intern_scan: tool({
+        description:
+          "Collect project AI files (AGENTS.md, docs, skills, ...) into .intern/state/PROJECT_CONTEXT.md.",
+        args: {
+          force: tool.schema.boolean().optional(),
+        },
+        async execute(args) {
+          if (!args.force) {
+            const manifest = loadProjectManifest(knowledge);
+            if (manifest.length > 0) {
+              return `scan: ${manifest.length} file(s) cached. Run with force=true to re-scan.`;
+            }
+          }
+          const relKnow = relative(target, knowledge);
+          const extraIgnore = paths.scanIgnore ?? [];
+          if (relKnow && !relKnow.startsWith("..")) extraIgnore.push(relKnow);
+          const res = syncProjectContext(knowledge, target, extraIgnore, paths.scan ?? []);
+          return `scan: ${res.count} project AI file(s) cached${res.changed ? " (changed)" : ""}` +
+            (res.changedPaths.length > 0
+              ? `\nchanged:\n${res.changedPaths.map((p) => `  ~ ${p}`).join("\n")}`
+              : "");
         },
       }),
 

@@ -323,6 +323,7 @@ can use it:
 ```bash
 bun core/cli.ts boot
 bun core/cli.ts spec new FeatureX           # scaffold plans/FeatureX from the template
+bun core/cli.ts scan                        # cache project AI files (AGENTS.md, docs, ...)
 bun core/cli.ts index .intern/plans/FeatureX
 bun core/cli.ts read src/Feature.swift     # print + mark a required read
 bun core/cli.ts step S1 slice-1
@@ -366,6 +367,7 @@ Registered by the opencode adapter:
 |------|--------------|
 | `intern_boot` | Collect session context → write `CONTEXT.md` |
 | `intern_spec` | Scaffold a new spec folder from the template |
+| `intern_scan` | Collect project AI files into the state cache |
 | `intern_index` | Scan a spec folder → build `INDEX.md`, start/resume a task |
 | `intern_context` | Return a minimal slice (one section / one function) |
 | `intern_step` | Declare the active step + anchor |

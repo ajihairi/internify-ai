@@ -21,6 +21,10 @@ export interface Paths {
   plans: string;
   /** Absolute path to the daily log directory (default `<knowledge>/daily`). */
   daily: string;
+  /** Extra AI-file includes (relative to target). */
+  scan?: string[];
+  /** Extra paths to skip during scan (relative to target). */
+  scanIgnore?: string[];
 }
 
 export function loadPaths(root: string): Paths {
@@ -29,6 +33,8 @@ export function loadPaths(root: string): Paths {
   let target = abs;
   let plans = "";
   let daily = "";
+  let scan: string[] | undefined;
+  let scanIgnore: string[] | undefined;
   const cfg = join(abs, "internify.json");
   if (existsSync(cfg)) {
     try {
@@ -45,11 +51,13 @@ export function loadPaths(root: string): Paths {
       if (typeof c.dailyDir === "string") {
         daily = isAbsolute(c.dailyDir) ? c.dailyDir : resolve(knowledge, c.dailyDir);
       }
+      if (Array.isArray(c.scan)) scan = (c.scan as unknown[]).filter((x) => typeof x === "string") as string[];
+      if (Array.isArray(c.scanIgnore)) scanIgnore = (c.scanIgnore as unknown[]).filter((x) => typeof x === "string") as string[];
     } catch {
       // ignore malformed config; fall back to defaults
     }
   }
   if (!plans) plans = join(knowledge, "plans");
   if (!daily) daily = join(knowledge, "daily");
-  return { root: abs, knowledge, target, plans, daily };
+  return { root: abs, knowledge, target, plans, daily, scan, scanIgnore };
 }

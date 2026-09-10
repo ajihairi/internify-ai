@@ -57,15 +57,17 @@ import {
   appendDaily,
   listDaily,
   listSpecs,
+  loadProjectManifest,
   writeContext,
 } from "./lib/io";
 import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
 import { findSpecTemplate, newSpec, specNameFromPath } from "./lib/spec";
+import { syncProjectContext } from "./lib/discover";
 
 const root = process.env.INTERNIFY_ROOT
   ? resolve(process.env.INTERNIFY_ROOT)
   : process.cwd();
-const { knowledge, target, plans, daily } = loadPaths(root);
+const { knowledge, target, plans, daily, scan, scanIgnore } = loadPaths(root);
 
 function fail(msg: string): never {
   console.error(msg);
@@ -91,6 +93,39 @@ function flags(argv: string[]): Record<string, string> {
   return out;
 }
 
+function scanIgnorePaths(): string[] {
+  const ignore = scanIgnore ? [...scanIgnore] : [];
+  const relKnow = relative(target, knowledge);
+  if (relKnow && !relKnow.startsWith("..")) ignore.push(relKnow);
+  return ignore;
+}
+
+/**
+ * Refresh the project AI context cache (lazy). `auto` is true at boot, where
+ * `INTERN_SCAN=off` skips the walk and only loads the existing cache.
+ */
+function scanProjectFiles(auto: boolean): string[] {
+  if (auto && process.env.INTERN_SCAN === "off") {
+    return loadProjectManifest(knowledge).map((e) => e.path);
+  }
+  syncProjectContext(knowledge, target, scanIgnorePaths(), scan ?? []);
+  return loadProjectManifest(knowledge).map((e) => e.path);
+}
+
+function cmdScan(): void {
+  const { changed, count, changedPaths } = syncProjectContext(
+    knowledge,
+    target,
+    scanIgnorePaths(),
+    scan ?? [],
+  );
+  console.log(`scan: ${count} project AI file(s) cached (${changed ? "changed" : "unchanged"})`);
+  for (const p of changedPaths) console.log(`  ~ ${p}`);
+  if (count === 0) {
+    console.log("  hint: add AGENTS.md / docs/*.md in the project, or set scan/scanIgnore in internify.json");
+  }
+}
+
 function cmdBoot(): void {
   const dailies = listDaily(knowledge, daily);
   const latest = pickLatestDaily(dailies);
@@ -104,12 +139,14 @@ function cmdBoot(): void {
   }
   const active = getActive(knowledge);
   const ledger = active ? loadLedger(knowledge, active.taskId) : null;
+  const projectFiles = scanProjectFiles(true);
   const pack = buildContextPack({
     generated: nowIso(),
     latestDaily: latest,
     dailySummary: extractSummary(dailyText),
     ledger,
     specs: listSpecs(knowledge, plans),
+    projectFiles,
   });
   writeContext(knowledge, pack);
   console.log(pack);
@@ -923,6 +960,7 @@ Commands:
   spec new <Name> [--role <role>] [--if-missing]
                                     scaffold a spec folder from the template
   spec list                         list spec folders under the plans dir
+  scan                              collect project AI files into the state cache
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task
   read <path>                       print a file and mark a required read as done
@@ -975,6 +1013,9 @@ switch (cmd) {
     if (rest[0] === "new") cmdSpecNew(rest[1], flags(rest));
     else if (rest[0] === "list") cmdSpecList();
     else fail("usage: internify spec new <Name> [--role <role>] | spec list");
+    break;
+  case "scan":
+    cmdScan();
     break;
   case "boot":
     cmdBoot();

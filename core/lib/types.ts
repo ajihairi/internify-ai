@@ -63,3 +63,11 @@ export interface Ledger {
   updated: string;
   forceAllow?: boolean;
 }
+
+export interface ManifestEntry {
+  path: string;
+  hash: string;
+  size: number;
+  mtimeMs: number;
+  updated: string;
+}

@@ -19,6 +19,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   user, and drafts `SPECmd.md` / `Plan.md` / `Task.md` (all providers).
 - `intern_spec` tool (opencode) + `/internify.work` now scaffolds a missing spec
   before indexing.
+- `internify scan` / `intern_scan` + lazy auto-scan at boot: discovers AI-context
+  files inside the project (`AGENTS.md`, `docs/`, `skills/`, ...), caches them in
+  `state/project-files.json` + `state/PROJECT_CONTEXT.md`, and lists them in
+  `CONTEXT.md`. Whitelist-only, cached by size+mtime, never rewrites discovered
+  docs. Configurable via `scan` / `scanIgnore`; disabled with `INTERN_SCAN=off`.
 
 ## [0.8.0] - 2026-09-10
 

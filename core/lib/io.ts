@@ -9,7 +9,7 @@ import {
 import { join, relative } from "node:path";
 import { parseIndex, parseLedger, serializeIndex, serializeLedger, taskDir } from "./state";
 import type { EvidenceRecord } from "./gates";
-import type { IndexFile, Ledger } from "./types";
+import type { IndexFile, Ledger, ManifestEntry } from "./types";
 
 /**
  * All functions take `knowledgeRoot` — the directory that holds `state/`,
@@ -151,4 +151,43 @@ export function listSpecs(knowledgeRoot: string, plansRoot?: string): string[] {
 export function writeContext(knowledgeRoot: string, text: string) {
   ensureDir(join(knowledgeRoot, "state"));
   writeFileSync(join(knowledgeRoot, "state", "CONTEXT.md"), text);
+}
+
+export function projectStateDir(knowledgeRoot: string): string {
+  return join(knowledgeRoot, "state");
+}
+
+export function projectManifestPath(knowledgeRoot: string): string {
+  return join(projectStateDir(knowledgeRoot), "project-files.json");
+}
+
+export function projectContextPath(knowledgeRoot: string): string {
+  return join(projectStateDir(knowledgeRoot), "PROJECT_CONTEXT.md");
+}
+
+export function loadProjectManifest(knowledgeRoot: string): ManifestEntry[] {
+  const p = projectManifestPath(knowledgeRoot);
+  if (!existsSync(p)) return [];
+  try {
+    const obj = JSON.parse(readFileSync(p, "utf8")) as unknown;
+    if (Array.isArray(obj)) return obj as ManifestEntry[];
+  } catch {
+    /* malformed → treat as empty */
+  }
+  return [];
+}
+
+export function saveProjectManifest(knowledgeRoot: string, entries: ManifestEntry[]) {
+  ensureDir(projectStateDir(knowledgeRoot));
+  writeFileSync(projectManifestPath(knowledgeRoot), JSON.stringify(entries, null, 2) + "\n");
+}
+
+export function readProjectContext(knowledgeRoot: string): string | null {
+  const p = projectContextPath(knowledgeRoot);
+  return existsSync(p) ? readFileSync(p, "utf8") : null;
+}
+
+export function writeProjectContext(knowledgeRoot: string, text: string) {
+  ensureDir(projectStateDir(knowledgeRoot));
+  writeFileSync(projectContextPath(knowledgeRoot), text);
 }

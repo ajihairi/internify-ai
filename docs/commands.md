@@ -49,6 +49,7 @@ tool.
 |------|--------------|
 | `intern_boot` | Collect session context → `CONTEXT.md` |
 | `intern_spec` | Scaffold a new spec folder from the template |
+| `intern_scan` | Collect project AI files into the state cache |
 | `intern_index` | Scan a spec → `INDEX.md`, start/resume a task |
 | `intern_context` | Return a minimal slice (one section / one function) |
 | `intern_step` | Declare the active step + anchor |
@@ -68,6 +69,7 @@ Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 | `internify init [dir] [--tool …] [--profile …] [--skills …]` | Scaffold + wire a provider |
 | `internify spec new <Name> [--role <role>] [--if-missing]` | Scaffold a spec folder from the template |
 | `internify spec list` | List spec folders under the plans directory |
+| `internify scan` | Cache project AI files into `state/` |
 | `internify boot` | Collect session context → `state/CONTEXT.md` |
 | `internify index <spec-folder>` | Build `INDEX.md`, start/resume a task |
 | `internify read <path>` | Print a file and mark a required read done |

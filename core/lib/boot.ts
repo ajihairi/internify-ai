@@ -40,6 +40,8 @@ export interface BootInput {
   dailySummary: string;
   ledger: Ledger | null;
   specs: string[];
+  /** Discovered project AI files (paths), injected from the scan cache. */
+  projectFiles?: string[];
 }
 
 export function buildContextPack(input: BootInput): string {
@@ -63,6 +65,12 @@ export function buildContextPack(input: BootInput): string {
     "",
     "## Available specs",
     input.specs.map((s) => `- ${s}`).join("\n") || "- (none)",
+    "",
+    "## Project AI files",
+    input.projectFiles && input.projectFiles.length > 0
+      ? input.projectFiles.map((f) => `- ${f}`).join("\n") +
+        "\n\n> Full contents: state/PROJECT_CONTEXT.md"
+      : "- (none)",
     "",
     "## Commands",
     "- `/internify.work <spec>`  start/resume a task",
