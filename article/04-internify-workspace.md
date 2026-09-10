@@ -1,84 +1,86 @@
-# 04 — internify: Satu Tool untuk Banyak Project
+# 04 — internify: One Tool for Many Projects
 
-Artikel ini merumuskan **model workspace internify**: satu repo tool yang berdiri
-di samping (bukan di dalam) project yang mau dikerjakan AI.
+This article frames the **internify workspace model**: a single tool repo that
+stands beside (not inside) the project an AI works on.
 
-> **internify bukan hal baru.** Ia adalah **generalisasi dari harness `/work`
-> yang sudah jalan sekarang** (`intern/` + `.opencode/` di repo kerja).
-> Nama `internify` hanya memberi identitas pada mesin yang sudah ada, supaya bisa
-> dipasang di project lain dan dipakai tool lain. Tidak ada rewrite; yang ada
-> adalah *ekstraksi + penamaan*.
-
----
-
-## 0. Hubungan dengan implementasi sekarang
-
-Yang sudah dibangun di repo kerja **adalah** internify versi awal
-(reference implementation). Peta dari "yang sudah ada" ke "internify":
-
-| Sudah ada (sekarang) | Menjadi (internify) | Catatan |
-|----------------------|---------------------|---------|
-| `intern/superpowers/harness/lib/` | `core/lib/` | Logic murni, sudah generic |
-| `.opencode/plugins/intern-harness.ts` | `adapters/opencode/plugins/` | Adapter opencode |
-| `.opencode/skills/intern-context/` | `adapters/opencode/skills/` | Adapter opencode |
-| `.opencode/command/work.md` | `adapters/opencode/command/` | Command `/work` |
-| `intern/superpowers/rules.md` | `template/.intern/rules.md` | Disanitasi jadi template |
-| `intern/superpowers/roles/` | `template/.intern/roles/` | Disanitasi jadi template |
-| `intern/superpowers/plans/_template/` | `template/.intern/plans/_template/` | Template spec |
-| `intern/article/` | `article/` | Sebagian disanitasi |
-| `harness/DESIGN.md` + plugin | `CONTRACT.md` + `README.md` | Dirangkum |
-
-Artinya: publish internify = **ekstrak + rename + sanitasi** dari yang sudah ada.
-`/work` tetap nama command-nya di opencode; `internify` adalah nama mesin/tool-nya.
+> **internify is not new.** It is the **generalization of the `/work` harness
+> that already runs today** (`intern/` + `.opencode/` in a working repo). The
+> name gives an identity to a machine that already exists, so it can be installed
+> in other projects and driven by other tools. There is no rewrite — only
+> *extraction + naming*.
 
 ---
 
-## 1. Visi
+## 0. Relationship to the current implementation
 
-Kasusnya sederhana:
+What is already built in the working repo **is** the early internify (reference
+implementation). The map from "what exists now" to internify:
 
-> Ada project A yang semula dikerjakan tanpa AI. Aku mau taruh tool `internify`
-> di parent-nya. Setelah itu di parent ada 2 folder: `internify` (tool-nya) dan
-> `projectA` (project-nya).
+| Exists now | Becomes (internify) | Note |
+|------------|---------------------|------|
+| `intern/superpowers/harness/lib/` | `core/lib/` | Pure logic, already generic |
+| `.opencode/plugins/intern-harness.ts` | `adapters/opencode/plugins/` | opencode adapter |
+| `.opencode/skills/intern-context/` | `adapters/opencode/skills/` | opencode adapter |
+| `.opencode/command/work.md` | `adapters/opencode/command/` | The `/work` command |
+| `rules.md` | `template/.intern/rules.md` | Sanitized into a template |
+| `roles/` | `template/.intern/roles/` | Sanitized into templates |
+| `plans/_template/` | `template/.intern/plans/_template/` | Spec template |
+| `article/` | `article/` | Partly sanitized |
+| `DESIGN.md` + plugin | `CONTRACT.md` + `README.md` | Summarized |
+
+In short: publishing internify = **extract + rename + sanitize** from what
+already exists. `/work` stays the command name in opencode; internify is the
+machine/tool name.
+
+---
+
+## 1. Vision
+
+The case is simple:
+
+> There is a project A that was originally built without AI. I want to place the
+> `internify` tool in its parent directory. After that, the parent contains two
+> folders: `internify` (the tool) and `projectA` (the project).
 
 ```
 parent/
-├── internify/     ← tool + template + adapter (repo ini)
-└── projectA/      ← project yang dikerjakan (tidak berubah dulu)
+├── internify/     ← tool + template + adapter (this repo)
+└── projectA/      ← the project being worked on (unchanged at first)
 ```
 
-Manfaat:
+Benefits:
 
-- **Satu tool, banyak project.** `internify` dibuat sekali, dipakai untuk A, B, C.
-- **Project tetap bersih.** Tool tidak mencampur source code-nya ke project.
-- **Update satu arah.** Perbaikan di `internify` dinikmati semua project.
+- **One tool, many projects.** Build internify once, use it for A, B, C.
+- **The project stays clean.** The tool never mixes its source into the project.
+- **One-way updates.** Improvements to internify benefit every project.
 
-Ini adalah **ekstraksi** dari setup yang sekarang menempel di dalam project
+This is the **extraction** of a setup that currently lives inside the project
 (`myapp/intern` + `myapp/.opencode`).
 
 ---
 
-## 2. Isi repo `internify`
+## 2. Contents of the internify repo
 
 ```
-internify/
+internify-ai/
 ├── README.md                ← overview
-├── CONTRACT.md              ← kontrak: skema file, aksi, gate, layout
+├── CONTRACT.md              ← contract: file schemas, actions, gates, layout
 ├── LICENSE
 ├── core/                    ← tool-agnostic
-│   ├── lib/                 ← markdown, types, state, index-builder,
+│   ├── lib/                 ← markdown, types, state, config, index-builder,
 │   │                          gates, context, io, boot (+ tests)
-│   └── cli.ts               ← internify boot|index|gate|evidence|close|init
+│   ├── cli.ts               ← internify boot|index|read|context|step|evidence|close
+│   └── smoke.ts
 ├── adapters/
 │   ├── opencode/            ← plugin + skill + command
-│   └── claude/              ← (nanti) hooks
-├── template/                ← yang di-scaffold ke project
+│   └── claude/              ← (later) hooks
+├── template/                ← scaffolded into a project
 │   └── .intern/
 │       ├── rules.md
 │       ├── roles/
 │       ├── plans/
 │       │   └── _template/
-│       │       └── <SpecName>/
+│       │       └── SpecName/
 │       │           ├── SPECmd.md     ← WHAT
 │       │           ├── Plan.md       ← HOW
 │       │           └── Task.md       ← WHO
@@ -86,35 +88,35 @@ internify/
 └── article/                 ← 01–04
 ```
 
-`core/` dan `template/` tidak menyentuh project. Yang menyentuh project hanya
-saat `internify init` (menyalin template + adapter).
+`core/` and `template/` never touch a project. A project is only touched during
+`internify init` (which copies the template + adapter).
 
 ---
 
-## 3. Struktur spec (WAJIB)
+## 3. Spec structure (required)
 
-Satu fitur = satu folder spec. Di dalamnya **harus** ada tiga file:
+One feature = one spec folder. It **must** contain three files:
 
 ```
 .intern/plans/<SpecName>/
-├── SPECmd.md     ← WHAT   : requirement, behavior, referensi existing code
-├── Plan.md       ← HOW    : langkah implementasi step-by-step
-└── Task.md       ← WHO    : pembagian task per role + snippet
+├── SPECmd.md     ← WHAT : requirements, behavior, references to existing code
+├── Plan.md       ← HOW  : step-by-step implementation plan
+└── Task.md       ← WHO  : task list per role, with snippets
 ```
 
-Aturannya:
+Rules:
 
-- Nama folder `<SpecName>` = nama spec (mis. `FeatureX`).
-- Folder template: `plans/_template/<SpecName>/` sebagai contoh siap-copy.
-- Harness memakai folder spec ini sebagai **unit kerja** (`/work <spec-folder>`):
-  ia scan `SPECmd.md`/`Plan.md`/`Task.md`, resolve file kode yang direferensi,
-  lalu membangun INDEX/LEDGER.
+- The folder name `<SpecName>` is the spec name (e.g. `FeatureX`).
+- Template folder: `plans/_template/SpecName/` as a ready-to-copy example.
+- The harness uses this spec folder as the **unit of work**
+  (`/work <spec-folder>`): it scans `SPECmd.md`/`Plan.md`/`Task.md`, resolves the
+  referenced code files, and builds INDEX/LEDGER.
 
-Hierarki spec yang lebih besar (opsional, seperti di project nyata):
+A larger spec hierarchy (optional, as in real projects):
 
 ```
 .intern/plans/
-├── _template/<SpecName>/{SPECmd,Plan,Task}.md
+├── _template/SpecName/{SPECmd,Plan,Task}.md
 ├── <Module>/
 │   ├── brief.md
 │   ├── <SpecName>/{SPECmd,Plan,Task}.md
@@ -123,13 +125,13 @@ Hierarki spec yang lebih besar (opsional, seperti di project nyata):
 
 ---
 
-## 4. Di mana knowledge hidup?
+## 4. Where does knowledge live?
 
-Ada dua mode. Pilih sesuai kebutuhan.
+There are two modes. Choose per your needs.
 
-### Mode A — Scaffold ke dalam project (default)
+### Mode A — Scaffold into the project (default)
 
-`internify init` menaruh knowledge di dalam `projectA`:
+`internify init` places knowledge inside `projectA`:
 
 ```
 parent/
@@ -140,12 +142,12 @@ parent/
     └── .opencode/         ← adapter (plugin/skill/command)
 ```
 
-- ✅ Semua yang dibutuhkan ada di satu tempat; project self-contained.
-- ❌ Project punya file AI di dalamnya (masuk `.gitignore` kalau perlu).
+- ✅ Everything needed is in one place; the project is self-contained.
+- ❌ The project contains AI files (git-ignore them if needed).
 
-### Mode B — Workspace terpisah (project tetap bersih)
+### Mode B — Separate workspace (project stays clean)
 
-Knowledge disimpan di `internify`, project tidak disentuh:
+Knowledge lives in the workspace, the project is untouched:
 
 ```
 parent/
@@ -153,135 +155,136 @@ parent/
 │   └── workspaces/
 │       └── projectA/       ← rules, roles, plans, daily, state
 └── projectA/
-    └── src/ ...            ← bersih, nol file AI
+    └── src/ ...            ← clean, zero AI files
 ```
 
-- ✅ Project benar-benar bersih (cocok kalau tak boleh ada file AI di repo).
-- ✅ Semua knowledge terpusat di `internify`, mudah di-backup.
-- ❌ Harness harus diberi tahu **target root** = `../projectA`.
+- ✅ The project is truly clean (good when no AI files are allowed in the repo).
+- ✅ All knowledge is centralized, easy to back up.
+- ❌ The harness must be told the **target root** = `../projectA`.
 
-Config (di `internify/workspaces/projectA/internify.json`):
+Config (at the workspace root, e.g. `parent/internify.json`):
 
 ```json
 {
-  "target": "../../../projectA",
-  "knowledge": ".",
-  "tool": "opencode"
+  "target": "projectA",
+  "knowledge": "internify/.intern"
 }
 ```
 
+> Mode B is implemented in `core/lib/config.ts`: `loadPaths()` reads
+> `internify.json` and returns `{ root, knowledge, target }`.
+
 ---
 
-## 5. `internify init` — scaffold
+## 5. `internify init` — scaffold (planned)
 
 ```bash
-# Mode A: knowledge masuk ke project
+# Mode A: knowledge goes into the project
 internify init ../projectA
 
-# Mode A + pilih tool
+# Mode A + pick a tool
 internify init ../projectA --tool opencode
 internify init ../projectA --tool claude
 
-# Mode B: knowledge tetap di internify, project bersih
+# Mode B: knowledge stays in the workspace, project stays clean
 internify init ../projectA --workspace
 ```
 
-Yang dilakukan `init`:
+What `init` will do:
 
-1. Buat struktur `.intern/{rules,roles,plans,daily,state}` (dari `template/`).
-2. Salin adapter terpilih (mis. `.opencode/` berisi plugin + skill + command).
-3. Tulis `internify.json` (target root, lokasi knowledge, tool).
-4. Cetak langkah selanjutnya (restart tool, jalanin boot).
+1. Create `.intern/{rules,roles,plans,daily,state}` (from `template/`).
+2. Copy the chosen adapter (e.g. `.opencode/` with plugin + skill + command).
+3. Write `internify.json` (target root, knowledge location, tool).
+4. Print the next steps (restart the tool, run boot).
 
 ---
 
-## 6. Bagaimana harness tahu "project A"
+## 6. How the harness knows "project A"
 
-Harness butuh **target root** (tempat kode project) yang terpisah dari
-**knowledge root** (tempat rules/specs/state). Di setup sekarang keduanya sama
-(`worktree || directory`). Model internify memisahkannya:
+The harness needs a **target root** (where the project code lives) separate from
+the **knowledge root** (where rules/specs/state live). Today they are the same
+(`worktree || directory`). The internify model separates them:
 
 ```
-config.internify.json  →  { target: "../projectA", knowledge: ".intern" }
+internify.json  →  { target: "projectA", knowledge: "internify/.intern" }
         │
         ▼
-plugin/harness
-  • menulis state  → knowledge/state/
-  • membaca spec   → knowledge/plans/
-  • gate edit      → file di bawah target/ (projectA)
+plugin / CLI
+  • writes state  → knowledge/state/
+  • reads specs   → knowledge/plans/
+  • gates edits   → files under target/ (projectA)
 ```
 
-Konsekuensi teknis: `canEdit` memakai **target root** untuk mengecek scope,
-sementara state disimpan di **knowledge root**. Ini perubahan kecil di lapisan
-plugin (bukan di `core/lib` yang sudah pure).
+Practical rule: open the AI tool **at the workspace root**, so scope paths are
+workspace-relative and never start with `..`.
 
 ---
 
-## 7. Alur pakai harian
+## 7. Daily usage
 
 ```bash
-# 1. Sekali di awal
+# 1. Once, at setup
 internify init ../projectA
 
-# 2. Setiap sesi kerja
+# 2. Every work session
 cd parent
-internify boot                      # atau via skill di tool
-# → menulis knowledge/state/CONTEXT.md + brief
+internify boot                      # or via the tool's skill
+# → writes knowledge/state/CONTEXT.md + a brief
 
-# 3. Mulai fitur
+# 3. Start a feature
 internify index .intern/plans/FeatureX
-# atau, di opencode:  /work .intern/plans/FeatureX
+# or, in opencode:  /work .intern/plans/FeatureX
 ```
 
-Bila pakai tool lain (Claude Code, Codex, Gemini CLI), cukup arahkan ke CLI yang
-sama (`internify boot|index|gate|...`). Lihat artikel 02 §5–§8.
+With other tools (Claude Code, Codex, Gemini CLI), point them at the same CLI
+(`internify boot|index|gate|...`). See article 02 §5–§8.
 
 ---
 
 ## 8. Multi-tool
 
-| Tool | Yang dipakai dari internify |
+| Tool | What it uses from internify |
 |------|------------------------------|
-| opencode | adapter `adapters/opencode/` (plugin + skill + command) |
-| Claude Code | adapter `adapters/claude/` (hooks) atau panggil CLI |
-| Codex / Gemini / Cursor | panggil CLI `internify ...` dari terminal |
+| opencode | the `adapters/opencode/` adapter (plugin + skill + command) |
+| Claude Code | `adapters/claude/` (hooks) or call the CLI |
+| Codex / Gemini / Cursor | call the `internify ...` CLI from the terminal |
 
-Selama **kontrak** (artikel 02 §4) dan **lokasi config** sama, ganti tool = ganti
-adapter, tanpa mengubah knowledge.
-
----
-
-## 9. Migrasi dari setup sekarang (project-embedded)
-
-Setup sekarang menempel di dalam project (`myapp/intern` + `myapp/.opencode`).
-Untuk pindah ke model internify:
-
-1. **Ekstrak** `core/lib` + adapter + `template/` ke repo `internify` (lihat
-   artikel 03 §4).
-2. Dari `myapp`, ambil `rules.md`/`roles/` → jadikan template generik.
-3. Ganti peran `intern/` di dalam project menjadi **knowledge** yang di-scaffold,
-   atau pindahkan ke `internify/workspaces/myapp/` (Mode B).
-4. Tambah field `target` di config supaya harness menunjuk ke root project.
-
-Effect: `myapp` tetap jadi project, `internify` jadi tool yang dipakai berulang.
+As long as the **contract** (article 02 §4) and the **config location** stay the
+same, switching tools = swapping the adapter, without changing knowledge.
 
 ---
 
-## 10. Roadmap singkat
+## 9. Migrating from today's setup (project-embedded)
 
-1. Ekstrak `core/lib` → tambah `cli.ts` (`boot/index/gate/evidence/close/init`).
-2. Pindahkan kontrak ke `CONTRACT.md`.
-3. Tulis `template/` lengkap (termasuk `plans/_template/<SpecName>/`).
-4. Bikin `internify init` (Mode A dulu, lalu Mode B).
-5. Tambah `target` root di plugin (pisah target vs knowledge).
-6. Adapter kedua (Claude Code) untuk membuktikan tool-agnostic.
+Today's setup lives inside the project (`myapp/intern` + `myapp/.opencode`). To
+move to the internify model:
+
+1. **Extract** `core/lib` + adapter + `template/` into the `internify-ai` repo
+   (see article 03 §4).
+2. From `myapp`, take `rules.md`/`roles/` → turn them into generic templates.
+3. Either scaffold knowledge into the project (Mode A) or move it to
+   `internify/workspaces/myapp/` (Mode B).
+4. Add a `target` field in config so the harness points at the project root.
+
+Effect: `myapp` stays a project; internify becomes a tool used repeatedly.
 
 ---
 
-## 11. Ringkas
+## 10. Short roadmap
 
-- `internify` = **tool repo**, sibling ke project. Satu untuk banyak project.
-- Project tetap jadi project; tool tidak mencampur source code-nya.
-- Spec **wajib** satu folder `<SpecName>/` berisi `SPECmd.md` + `Plan.md` + `Task.md`.
-- Knowledge bisa di-scaffold ke project (Mode A) atau tetap di internify (Mode B).
-- Yang menghubungkan: **kontrak** + **config target root**.
+1. ✅ Extract `core/lib` → add `cli.ts`.
+2. ✅ Move the contract into `CONTRACT.md`.
+3. ✅ Write `template/` (including `plans/_template/SpecName/`).
+4. ⏳ Build `internify init` (Mode A first, then Mode B).
+5. ✅ Add the target/knowledge split (Mode B).
+6. ⏳ Add a second adapter (Claude Code) to prove tool-agnosticism.
+
+---
+
+## 11. Summary
+
+- internify = a **tool repo**, sibling to the project. One for many projects.
+- The project stays a project; the tool never mixes its source in.
+- A spec **must** be one `<SpecName>/` folder with `SPECmd.md` + `Plan.md` + `Task.md`.
+- Knowledge can be scaffolded into the project (Mode A) or stay in internify (Mode B).
+- What connects them: the **contract** + the **target-root config**.

@@ -1,246 +1,247 @@
-# 02 — Bikin Workflow AI Ini Portabel (Project Lain, Tool Lain)
+# 02 — Making This AI Workflow Portable (Other Projects, Other Tools)
 
-Artikel ini menjelaskan cara memakai ulang harness di project lain (misal
-project ABC) dan dengan AI tool selain opencode. Ditulis supaya bisa dipublish
-sebagai rujukan mandiri.
-
----
-
-## 1. Masalahnya
-
-Workflow AI yang bagus biasanya **terikat** ke satu project dan satu tool:
-
-- Tiap project baru → setup ulang dari nol.
-- Ganti AI tool (opencode → Claude Code → Codex) → semua setup hangus.
-
-Padahal 90% nilainya bukan di tool-nya, tapi di **cara kerja** dan **struktur
-pengetahuan**-nya. Yang tool-specific cuma lapisan "penegak aturan".
-
-Jadi solusinya: **pisahkan yang portabel dari yang tidak.**
+This article explains how to reuse the harness in another project (say, project
+ABC) and with AI tools other than opencode. It is written to stand on its own.
 
 ---
 
-## 2. Dua lapis: Content vs Enforcement
+## 1. The problem
 
-| Lapis | Isi | Sifat |
-|-------|-----|-------|
-| **Content / Spec** | `AGENTS.md`, `rules`, `roles`, `plans/` (SPEC/Plan/Task), `daily/` | **Portabel.** Semua markdown. AI tool apa pun bisa baca |
-| **Enforcement / Harness** | plugin, hook, custom tool yang memblokir aksi | **Tool-specific.** opencode API ≠ Claude ≠ Codex |
+A good AI workflow is usually **locked** to one project and one tool:
 
-Konsekuensi:
+- Every new project → set everything up again.
+- Switching AI tools (opencode → Claude Code → Codex) → all setup lost.
 
-- Content bisa dipindah antar project & tool tanpa perubahan.
-- Enforcement perlu **adapter** per tool.
-- Keduanya dihubungkan oleh satu **kontrak** (lihat §4).
+Yet 90% of the value is not the tool — it is the **way of working** and the
+**knowledge structure**. Only the enforcement layer is tool-specific.
+
+So the answer is: **separate what is portable from what is not.**
 
 ---
 
-## 3. Anatomi harness yang bisa dipakai ulang
+## 2. Two layers: Content vs Enforcement
+
+| Layer | Contents | Nature |
+|-------|----------|--------|
+| **Content / Spec** | `AGENTS.md`, `rules`, `roles`, `plans/` (SPEC/Plan/Task), `daily/` | **Portable.** All markdown. Any AI tool can read it |
+| **Enforcement / Harness** | plugins, hooks, custom tools that block actions | **Tool-specific.** opencode API ≠ Claude ≠ Codex |
+
+Consequences:
+
+- Content can move between projects and tools unchanged.
+- Enforcement needs one **adapter** per tool.
+- The two are joined by a single **contract** (see §4).
+
+---
+
+## 3. Anatomy of a reusable harness
 
 ```
 <project>/
-├── AGENTS.md                  ← entry point: instruksi boot + pointer
-├── .intern/                   ← nama bebas (intern/, .ai/, harness/)
-│   ├── rules.md               ← aturan global
-│   ├── roles/                 ← instruksi per peran (UI, API, dst)
-│   ├── plans/                 ← spec per fitur, satu folder per spec:
+├── AGENTS.md                  ← entry point: boot instructions + pointers
+├── .intern/                   ← any name (intern/, .ai/, harness/)
+│   ├── rules.md               ← global rules
+│   ├── roles/                 ← per-role instructions (UI, API, …)
+│   ├── plans/                 ← one folder per feature:
 │   │   └── <SpecName>/        ←   SPECmd.md + Plan.md + Task.md
-│   ├── daily/                 ← log harian (keputusan, progres)
+│   ├── daily/                 ← daily log (decisions, progress)
 │   └── state/                 ← RUNTIME: context, index, ledger, evidence
-└── <adapter>/                 ← colokan ke AI tool
+└── <adapter>/                 ← the plug into an AI tool
     ├── .opencode/             ← opencode
     ├── .claude/               ← Claude Code
     ├── .codex/                ← Codex
-    └── bin/intern-harness     ← ATAU CLI universal
+    └── bin/internify          ← OR a universal CLI
 ```
 
-Prinsip yang membuat ini bekerja:
+The principles that make this work:
 
-1. **Context di disk, bukan di memory.** State ditulis ke file, dibaca ulang
-   tiap turn. Ganti session / compaction tidak kehilangan grounding.
-2. **Index di-generate, bukan dikarang.** File nyata di-scan + di-hash; agent
-   tidak bisa menciptakan path palsu.
-3. **Gate berlapis.** Edit harus lolos: read → scope/step → evidence.
+1. **Context on disk, not in memory.** State is written to files and re-read
+   every turn. New session or compaction → no loss of grounding.
+2. **The index is generated, not authored.** Real files are scanned and hashed;
+   the agent cannot invent paths.
+3. **Layered gates.** An edit must pass: read → scope/step → evidence.
 
 ---
 
-## 4. Kontrak (yang harus distandarkan)
+## 4. The contract (what to standardize)
 
-Selama 4 hal ini dijaga, **ganti tool = ganti adapter saja.**
+As long as these four stay fixed, **switching tools = swapping the adapter.**
 
-### 4.1 Skema file (runtime state)
+### 4.1 File schemas (runtime state)
 
-| File | Isi |
-|------|-----|
-| `CONTEXT.md` | Session pack: pointer rules, daily terbaru, task aktif, daftar spec |
-| `INDEX.md` | Peta source-of-truth: required reads + hash + anchor + slice |
+| File | Contents |
+|------|----------|
+| `CONTEXT.md` | Session pack: rules pointer, latest daily, active task, specs |
+| `INDEX.md` | Source-of-truth map: required reads + hashes + anchors + slices |
 | `LEDGER.md` | Working memory: phase, scope, steps, decisions |
-| `EVIDENCE.md` | Bukti per step (append-only) |
+| `EVIDENCE.md` | Per-step proof (append-only) |
 
-Semua markdown + blok JSON bertanda (`<!-- intern:<tag>:begin/end -->`) supaya
-human-readable **dan** machine-parseable.
+Everything is markdown with tagged JSON blocks
+(`<!-- intern:<tag>:begin/end -->`) — human-readable **and** machine-parseable.
 
-### 4.2 Aksi
+### 4.2 Actions
 
 ```
-boot      → kumpulkan context sesi
-index     → scan spec folder, bikin INDEX, mulai/resume task
-context   → ambil slice minimal (1 section / 1 fungsi)
-step      → deklarasikan step aktif + anchor
-evidence  → catat bukti untuk sebuah step
-close     → validasi evidence, tulis daily, selesai
-status    → tampilkan phase + ledger
-override  → bypass gate satu kali, tercatat (escape hatch)
+boot      → collect session context
+index     → scan a spec folder, build INDEX, start/resume a task
+context   → return a minimal slice (one section / one function)
+step      → declare the active step + anchor
+evidence  → record proof for a step
+close     → validate evidence, write the daily log, finish
+status    → show phase + ledger
+override  → one-shot recorded gate bypass
 ```
 
-### 4.3 Gate
+### 4.3 Gates
 
-| Gate | Menahan |
-|------|---------|
-| **Read** | Edit sebelum required reads selesai |
-| **Scope/Step** | Edit di luar scope atau sebelum deklarasi step |
-| **Evidence** | Menutup task tanpa bukti lulus |
+| Gate | Blocks |
+|------|--------|
+| **Read** | Editing before the required reads are done |
+| **Scope/Step** | Editing outside scope or before a step is declared |
+| **Evidence** | Closing a task without passing evidence per step |
+
+(Reference implementations also add anchor verification and bash gating.)
 
 ### 4.4 Layout
 
-`AGENTS.md` di root + `.intern/{rules,roles,plans,daily,state}`.
+`AGENTS.md` at the root + `.intern/{rules,roles,plans,daily,state}`.
 
 ---
 
-## 5. Tiga opsi portabilitas
+## 5. Three portability options
 
-| Opsi | Enforcement | Portabilitas | Kerja |
-|------|-------------|--------------|-------|
-| **A. Markdown-only** | Lemah (konvensi) | ★★★ | Rendah |
-| **B. Adapter per tool** | Kuat | ★★ | Tinggi (banyak implementasi) |
-| **C. CLI + git hooks** | Kuat | ★★★ | Sedang |
+| Option | Enforcement | Portability | Effort |
+|--------|-------------|-------------|--------|
+| **A. Markdown-only** | Weak (convention) | ★★★ | Low |
+| **B. Adapter per tool** | Strong | ★★ | High (many implementations) |
+| **C. CLI + git hooks** | Strong | ★★★ | Medium |
 
-### Opsi A — Markdown-only
+### Option A — Markdown-only
 
-Tulis protokol loop di `AGENTS.md`, agent mengikuti secara konvensi.
+Write the loop protocol in `AGENTS.md`; the agent follows it by convention.
 
-- ✅ Jalan di tool apa pun yang membaca `AGENTS.md`.
-- ❌ Tidak ada yang benar-benar memblokir kalau dilanggar.
+- ✅ Works in any tool that reads `AGENTS.md`.
+- ❌ Nothing actually blocks a violation.
 
-### Opsi B — Adapter per tool
+### Option B — Adapter per tool
 
-Kontrak tetap; tiap tool punya implementasi tipis.
+Keep the contract; give each tool a thin implementation.
 
-- ✅ Enforcement kuat.
-- ❌ Kerja berulang: opencode plugin, Claude Code hooks, dst.
+- ✅ Strong enforcement.
+- ❌ Repeated work: opencode plugin, Claude Code hooks, etc.
 
-### Opsi C — CLI + git hooks (rekomendasi)
+### Option C — CLI + git hooks (recommended)
 
-Logic harness diangkat jadi CLI, misalnya:
+Lift the harness logic into a CLI:
 
 ```bash
-intern-harness boot
-intern-harness index <spec-folder>
-intern-harness gate edit <file>     # exit != 0 → block
-intern-harness evidence <step> --claim "..." --proof "..." --result pass
-intern-harness close
+internify boot
+internify index <spec-folder>
+internify gate edit <file>     # exit != 0 → block
+internify evidence <step> --claim "..." --proof "..." --result pass
+internify close
 ```
 
-AI tool apa pun cukup memanggil CLI lewat terminal/bash. Enforcement keras
-ditambah lewat **git pre-commit hook** (mis. tolak commit kalau ada step tanpa
-evidence).
+Any AI tool can call the CLI from the terminal/bash. Add hard enforcement with a
+**git pre-commit hook** (e.g. reject a commit when a step has no evidence).
 
-- ✅ Tool-agnostic penuh (opencode, Claude Code, Codex, Gemini CLI, Cursor…).
-- ✅ Satu logic, banyak tool.
-- ✅ Bisa dipakai manusia juga (bukan cuma agent).
+- ✅ Fully tool-agnostic (opencode, Claude Code, Codex, Gemini CLI, Cursor…).
+- ✅ One logic, many tools.
+- ✅ Usable by humans too, not just agents.
 
 ---
 
-## 6. Arsitektur yang disarankan: core + adapters + template
+## 6. Recommended architecture: core + adapters + template
 
-Pisahkan jadi satu repo mandiri (mis. `internify`):
+Split into a standalone repo (e.g. `internify`):
 
 ```
 internify/
-├── core/                 ← logic murni + CLI (tool-agnostic)
+├── core/                 ← pure logic + CLI (tool-agnostic)
 │   ├── lib/              ← state, index, gates, context, boot
-│   └── cli.ts            ← boot/index/gate/evidence/close
+│   ├── cli.ts            ← boot/index/gate/evidence/close
+│   └── smoke.ts
 ├── adapters/
-│   ├── opencode/         ← plugin tipis yang memanggil core
-│   ├── claude/           ← hooks tipis
+│   ├── opencode/         ← thin plugin calling core
+│   ├── claude/           ← thin hooks
 │   └── codex/
 ├── template/             ← skeleton .intern + AGENTS.md
-│   └── .intern/plans/_template/<SpecName>/{SPECmd,Plan,Task}.md
-└── CONTRACT.md           ← §4 di atas, versi resmi
+│   └── .intern/plans/_template/SpecName/{SPECmd,Plan,Task}.md
+└── CONTRACT.md           ← §4, the official version
 ```
 
-Project baru cukup:
+A new project only needs:
 
 ```bash
-# 1. Ambil skeleton
+# 1. Take the skeleton
 cp -r internify/template/. <project>/
 
-# 2. Pilih adapter (salah satu)
+# 2. Pick an adapter (one)
 cp -r internify/adapters/opencode/. <project>/.opencode/
-#   atau install CLI global untuk tool apa pun
+#   or install the CLI globally for any tool
 npm i -g internify
 
-# 3. Selesai. Buka tool, mulai session.
+# 3. Done. Open the tool and start a session.
 ```
 
 ---
 
-## 7. Bootstrap di project ABC (langkah nyata)
+## 7. Bootstrap in project ABC (concrete steps)
 
-1. **Copy content layer:**
+1. **Copy the content layer:**
    `AGENTS.md` + `.intern/{rules.md, roles/, plans/, daily/, state/}`.
 
-2. **Tulis `rules.md` versi ABC** — aturan global project (bahasa, arsitektur,
-   larangan build/commit, dsb).
+2. **Write ABC's `rules.md`** — global project rules (language, architecture,
+   no-build/no-commit, …).
 
-3. **Tulis `roles/`** — peran agent (mis. `BackendEngineer`, `DataEngineer`).
+3. **Write `roles/`** — agent roles (e.g. `BackendEngineer`, `DataEngineer`).
 
-4. **Siapkan `plans/_template/<SpecName>/`** — satu folder per spec berisi
-   `SPECmd.md` (WHAT), `Plan.md` (HOW), `Task.md` (WHO). Nama folder = nama spec.
+4. **Prepare `plans/_template/SpecName/`** — one folder per spec containing
+   `SPECmd.md` (WHAT), `Plan.md` (HOW), `Task.md` (WHO). Folder name = spec name.
 
-5. **Pilih enforcement:**
-   - cepat: Opsi A (protokol di `AGENTS.md`), atau
-   - kuat & portabel: Opsi C (CLI) → pasang git hook.
+5. **Choose enforcement:**
+   - fast: Option A (protocol in `AGENTS.md`), or
+   - strong & portable: Option C (CLI) + git hook.
 
-6. **Isi `AGENTS.md`** = urutan boot + pointer:
-   `rules → role → plan aktif → daily terbaru`.
-
----
-
-## 8. Matriks per tool
-
-| Tool | Mekanisme ekstensi | Cara pakai core |
-|------|--------------------|-----------------|
-| opencode | plugin (`tool.execute.before/after`), skill, command | Adapter plugin panggil `core` |
-| Claude Code | hooks + slash commands | Hook panggil CLI |
-| Codex | hooks / wrapper script | Wrapper panggil CLI |
-| Gemini CLI | skill/activation | Skill panggil CLI |
-| Cursor / lain | rules + terminal | Panggil CLI |
-
-Yang sama di semua: **CLI**, **skema file**, dan **AGENTS.md**. Yang berbeda
-cuma cara tool memanggil CLI-nya.
+6. **Fill `AGENTS.md`** = boot order + pointers:
+   `rules → role → active plan → latest daily`.
 
 ---
 
-## 9. Dari kondisi sekarang ke portabel
+## 8. Tool matrix
 
-Status harness saat ini: lib **sudah pure & teruji**, tapi colokannya masih
-opencode.
+| Tool | Extension mechanism | How to use core |
+|------|---------------------|-----------------|
+| opencode | plugin (`tool.execute.before/after`), skill, command | Plugin adapter calls `core` |
+| Claude Code | hooks + slash commands | Hook calls the CLI |
+| Codex | hooks / wrapper script | Wrapper calls the CLI |
+| Gemini CLI | skill/activation | Skill calls the CLI |
+| Cursor / others | rules + terminal | Call the CLI |
 
-Langkah menuju tool-agnostic:
-
-1. **Angkat `lib/` jadi CLI.** Bungkus dengan subcommand `boot/index/gate/...`.
-   Ini jarak terpendek — logic sudah tidak bergantung opencode.
-2. **Pindahkan kontrak ke `CONTRACT.md`.** Supaya adapter lain punya sumber acuan.
-3. **Bikin adapter kedua** (mis. Claude Code hooks) untuk membuktikan
-   tool-agnostic-nya nyata, bukan klaim.
-4. **Ekstrak ke repo `internify`** + `template/` supaya project baru tinggal copy.
+Shared across all: **the CLI**, **the file schemas**, and **AGENTS.md**. Only the
+way a tool invokes the CLI differs.
 
 ---
 
-## 10. Penutup
+## 9. From today to portable
 
-Kuncinya cuma satu: **content portabel, enforcement lewat kontrak + adapter.**
+Current state: the lib is **pure and tested**, but the plug is still opencode.
 
-Kalau kontrak (§4) dijaga stabil, biaya ganti project atau ganti AI tool turun
-drastic — yang berubah cuma beberapa puluh baris adapter, bukan seluruh workflow.
+Steps to full tool-agnosticism:
+
+1. **Lift `lib/` into a CLI.** Wrap it with `boot/index/gate/...` subcommands.
+   Shortest path — the logic no longer depends on opencode.
+2. **Move the contract into `CONTRACT.md`.** So other adapters have one source.
+3. **Build a second adapter** (e.g. Claude Code hooks) to prove tool-agnosticism
+   is real, not a claim.
+4. **Extract into an `internify` repo** + `template/` so new projects just copy.
+
+---
+
+## 10. Closing
+
+One principle: **portable content, enforcement via a contract + adapters.**
+
+If the contract (§4) stays stable, the cost of switching projects or AI tools
+drops drastically — what changes is a few dozen adapter lines, not the whole
+workflow.

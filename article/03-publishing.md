@@ -1,56 +1,55 @@
-# 03 — Publish ke GitHub Tanpa Membocorkan Materi Internal
+# 03 — Publishing to GitHub Without Leaking Internal Material
 
-Artikel ini panduan mempublikasikan **harness** ke GitHub secara aman. Baca
-sebelum `git push` apa pun.
-
----
-
-## 1. Prinsip utama
-
-> **Harness (generik) = publik. Pengetahuan project (privat) = tetap privat.**
-
-Yang punya nilai jual dan layak dibagikan adalah **cara kerja**-nya (content vs
-enforcement, kontrak, loop, CLI, adapter). Yang **tidak boleh** ikut adalah
-pengetahuan internal: spec produk, log harian, URL internal, identitas signing,
-kode produksi.
-
-Jangan pernah `git push` repo kerja (`myapp/`) apa adanya. Publish **repo baru
-terpisah** yang isinya cuma harness generik.
+A guide to publishing the harness safely. Read it before any `git push`.
 
 ---
 
-## 2. Aman vs tidak
+## 1. Core principle
 
-| Aman dipublish | JANGAN dipublish |
-|----------------|------------------|
-| `harness/lib/` (logic murni) | `intern/superpowers/plans/**` (spec fitur produk) |
-| `harness/DESIGN.md`, `PLAN.md` (setelah disanitasi) | `intern/daily/**` (log kerja, nama orang/tim) |
-| `harness/smoke.ts`, tests | `rules.md` / `roles/` versi **mentah** internal |
-| `.opencode/plugins/intern-harness.ts` | Root `plans/ComponentCatalog` |
-| `.opencode/skills/`, `.opencode/command/` | `app//**` (kode produksi) |
-| `rules.md` + `roles/` versi **template** (disanitasi) | Nama client/perusahaan, nama produk, identitas signing |
-| `article/01–03` (setelah disanitasi) | File `state/` runtime, `node_modules` |
-| `template/`, `CONTRACT.md` | |
+> **Harness (generic) = public. Project knowledge (private) = private.**
 
-> `rules.md` dan `roles/` **ikut dipublish** — tapi sebagai **template generik**,
-> bukan versi internal. Isi internal (URL, signing, nama client) dibuang; sisakan
-> strukturnya sebagai contoh yang bisa diisi ulang di project lain.
+What is worth sharing is the **way of working** (content vs enforcement, the
+contract, the loop, the CLI, adapters). What must **not** come along is internal
+knowledge: product specs, daily logs, internal URLs, signing identities,
+production code.
+
+Never `git push` a working repo as-is. Publish a **separate repo** containing
+only the generic harness.
 
 ---
 
-## 3. Struktur repo publik `internify`
+## 2. Safe vs not safe
+
+| Safe to publish | Do NOT publish |
+|-----------------|----------------|
+| `core/lib/` (pure logic) | `plans/**` (product feature specs) |
+| `docs/DESIGN.md` (sanitized) | `daily/**` (work logs, people/team names) |
+| `core/smoke.ts`, tests | the raw internal `rules.md` / `roles/` |
+| `.opencode/` adapter (plugin, skill, command) | a standalone `plans/` catalog |
+| `rules.md` + `roles/` as **generic templates** (sanitized) | `app/` (production code) |
+| `article/01–04` (sanitized) | client/company/product names, signing identity |
+| `template/`, `CONTRACT.md` | runtime `state/`, `node_modules/` |
+
+> `rules.md` and `roles/` **are published** — but as **generic templates**, not
+> their internal versions. Strip the internal content (URLs, signing, client
+> names) and keep the structure as a fill-in-the-blanks example.
+
+---
+
+## 3. Public repo structure
 
 ```
-internify/
-├── README.md               ← overview + cara pakai
-├── CONTRACT.md             ← §kontrak resmi (files/actions/gates/layout)
+internify-ai/
+├── README.md               ← overview + usage
+├── CONTRACT.md             ← the official contract (schemas/actions/gates/layout)
 ├── LICENSE                 ← MIT / Apache-2.0
 ├── .gitignore
-├── package.json            ← untuk CLI (nanti)
+├── package.json
 ├── core/
-│   ├── lib/                ← markdown.ts, types.ts, state.ts, index-builder.ts,
-│   │                          gates.ts, context.ts, io.ts, boot.ts (+ tests)
-│   └── cli.ts              ← boot/index/gate/evidence/close/status
+│   ├── lib/                ← markdown, types, state, config, index-builder,
+│   │                          gates, context, io, boot (+ tests)
+│   ├── cli.ts              ← boot/index/read/context/step/evidence/close/...
+│   └── smoke.ts            ← end-to-end simulation
 ├── adapters/
 │   └── opencode/
 │       ├── plugins/intern-harness.ts
@@ -60,118 +59,115 @@ internify/
 ├── article/
 │   ├── 01-what-we-built.md
 │   ├── 02-portability.md
-│   └── 03-publishing.md
+│   ├── 03-publishing.md
+│   └── 04-internify-workspace.md
 └── template/
     ├── AGENTS.md
     └── .intern/
-        ├── rules.md                  ← template generik (disanitasi)
-        ├── roles/                    ← template peran
-        │   ├── Engineer.md
-        │   └── DataEngineer.md
-        ├── plans/_template/<SpecName>/{SPECmd,Plan,Task}.md
-        └── daily/.keep
+        ├── rules.md
+        ├── roles/
+        ├── plans/_template/SpecName/{SPECmd,Plan,Task}.md
+        └── daily/
 ```
-
-Catatan: lib cukup diganti nama `.intern` → `.internify` bila mau lebih netral,
-tapi selama konsisten tidak masalah.
 
 ---
 
-## 4. Langkah ekstraksi (dari repo kerja ke repo publik)
+## 4. Extraction steps (from the working repo to the public repo)
 
 ```bash
-# 1. Repo baru
-mkdir internify && cd internify && git init
+# 1. New repo
+mkdir internify-ai && cd internify-ai && git init
 
-# 2. Copy core logic + tests (tool-agnostic)
+# 2. Copy the tool-agnostic core (+ tests)
 mkdir -p core
-cp -r ../myapp/intern/superpowers/harness/lib core/lib
+cp -r /path/to/workrepo/internify-ai/core/lib core/lib
+cp    /path/to/workrepo/internify-ai/core/smoke.ts core/
 
-# 3. Copy adapter opencode
+# 3. Copy the opencode adapter
 mkdir -p adapters/opencode
-cp -r ../myapp/.opencode/plugins  adapters/opencode/plugins
-cp -r ../myapp/.opencode/skills   adapters/opencode/skills
-cp -r ../myapp/.opencode/command  adapters/opencode/command
-cp    ../myapp/.opencode/package.json adapters/opencode/package.json
+cp -r /path/to/workrepo/internify-ai/adapters/opencode/plugins adapters/opencode/plugins
+cp -r /path/to/workrepo/internify-ai/adapters/opencode/skills  adapters/opencode/skills
+cp -r /path/to/workrepo/internify-ai/adapters/opencode/command adapters/opencode/command
+cp    /path/to/workrepo/internify-ai/adapters/opencode/package.json adapters/opencode/package.json
 
-# 4. Copy article + docs
-mkdir -p article
-cp ../myapp/intern/article/*.md article/
-cp ../myapp/intern/superpowers/harness/DESIGN.md .
-cp ../myapp/intern/superpowers/harness/PLAN.md .
-cp ../myapp/intern/superpowers/harness/smoke.ts core/
+# 4. Copy the articles + design docs
+mkdir -p article docs
+cp  /path/to/workrepo/internify-ai/article/*.md article/
+cp  /path/to/workrepo/internify-ai/docs/DESIGN.md docs/
 
-# 5. Copy rules + roles sebagai bahan template (WAJIB disanitasi)
+# 5. Copy rules + roles as template material (MUST be sanitized)
 mkdir -p template/.intern/roles
-cp    ../myapp/intern/superpowers/rules.md template/.intern/rules.md
-cp -r ../myapp/intern/superpowers/roles/* template/.intern/roles/
+cp    /path/to/workrepo/.intern/rules.md template/.intern/rules.md
+cp -r /path/to/workrepo/.intern/roles/*   template/.intern/roles/
 
-# 6. Tulis README.md + CONTRACT.md + LICENSE + .gitignore dari nol
+# 6. Write README.md + CONTRACT.md + LICENSE + .gitignore from scratch
 ```
 
-Yang **tidak** dicopy: `intern/superpowers/plans`, `intern/daily`,
-root `plans`, `app/`, dan `intern/state`.
+What is **not** copied: product `plans/`, `daily/`, the root `plans/`, `app/`,
+and runtime `state/`.
+
+> Note: `core/smoke.ts` and the tests import `./lib/...`; keep the same relative
+> layout so no import paths change.
 
 ---
 
-## 5. Sanitasi setelah copy (wajib)
+## 5. Mandatory sanitization after copying
 
-Periksa & bersihkan jejak internal:
+Check and remove internal traces:
 
-1. **`rules.md` + `roles/`** → ubah jadi **template generik**: buang URL
-   internal, aturan signing, nama client; ganti contoh (mis. `FeatureX`,
-   `Engineer.md`/`DataEngineer.md`) yang bisa diisi ulang di project lain.
-   Struktur tetap dipertahankan sebagai contoh.
-2. **`DESIGN.md` / `PLAN.md`** → cari referensi nama produk/client dan ganti
-   dengan contoh netral (`FeatureX`).
-3. **`article/01`** → kalau artikel itu menyebut project internal, ganti nama
-   jadi contoh generik sebelum publish (atau publish hanya 02 + 03).
-4. **Author/credit** → cek tidak ada nama client di test/mock/header.
-5. **Contoh di test** → ganti path contoh yang menyebut fitur internal dengan
-   nama generik.
+1. **`rules.md` + `roles/`** → turn into **generic templates**: strip internal
+   URLs, signing rules, client names; replace with examples (`FeatureX`,
+   `Engineer.md` / `DataEngineer.md`) that a new project can fill in. Keep the
+   structure as an example.
+2. **`docs/DESIGN.md`** → replace product/client names with neutral examples
+   (`FeatureX`).
+3. **`article/01`** → if it names an internal project, replace with a generic
+   example before publishing (or publish only 02 + 03).
+4. **Author/credit** → ensure no client name appears in tests/mocks/headers.
+5. **Test examples** → replace example paths that name internal features with
+   generic names.
 
-Cari cepat dengan ripgrep:
+Quick audit with ripgrep:
 
 ```bash
 rg -i "acme|internal|confluence|<your-company>" .
-rg -i "http[s]?://" .            # audit semua URL
+rg -i "http[s]?://" .            # audit all URLs
 ```
 
 ---
 
 ## 6. LICENSE + .gitignore
 
-`.gitignore` repo publik:
+`.gitignore` for the public repo:
 
 ```gitignore
 node_modules/
 .DS_Store
 *.log
 state/
-.opencode/node_modules/
-.opencode/bun.lock
+.intern/state/
 ```
 
-Pilih lisensi (MIT paling umum untuk tooling; Apache-2.0 kalau mau
-patent grant). Tambahkan `LICENSE` di root dan sebutkan di `README.md`.
+Pick a license (MIT is most common for tooling; Apache-2.0 if you want a patent
+grant). Add `LICENSE` at the root and mention it in `README.md`.
 
 ---
 
-## 7. Verifikasi sebelum push
+## 7. Verify before pushing
 
 Checklist:
 
-- [ ] Tidak ada nama client/perusahaan/produk di file mana pun
-- [ ] Tidak ada URL internal / Confluence / Jira
-- [ ] Tidak ada file `daily/`, `plans/` produk, atau `rules.md` mentah
-- [ ] Tidak ada `node_modules/`, `state/`, atau file runtime
-- [ ] Tidak ada kredensial/token/`.env`
-- [ ] `bun test core/lib` hijau di repo publik
-- [ ] `smoke.ts` jalan
-- [ ] `README.md` + `LICENSE` ada
-- [ ] `git remote` mengarah ke repo baru, **bukan** repo kerja
+- [ ] No client/company/product names in any file
+- [ ] No internal URLs / Confluence / Jira
+- [ ] No product `daily/`, `plans/`, or raw `rules.md`
+- [ ] No `node_modules/`, `state/`, or runtime files
+- [ ] No credentials/tokens/`.env`
+- [ ] `bun test` is green in the public repo
+- [ ] `smoke.ts` runs
+- [ ] `README.md` + `LICENSE` present
+- [ ] `git remote` points at the new repo, **not** the working repo
 
-Cek sekali lagi isi staging sebelum commit pertama:
+Double-check the staging area before the first commit:
 
 ```bash
 git add -A
@@ -181,27 +177,29 @@ git diff --cached --stat
 
 ---
 
-## 8. Menjaga sinkronisasi dengan repo kerja
+## 8. Keeping in sync with the working repo
 
-Setelah publish, repo kerja tetap jadi tempat kerja internal. Jembatannya:
+After publishing, the working repo stays the internal place to work. The bridge:
 
 ```
-internify (publik)              myapp (privat)
-├── core/lib  ◄── sumber utama ── (pernah dicopy)
-└── adapters                     .opencode (dipakai harian)
+internify-ai (public)            myapp (private)
+├── core/lib  ◄── source of truth ── (copied once)
+└── adapters                        .opencode (used daily)
 ```
 
-- Perbaikan generik **di upstream `internify`**, lalu disalin ke project.
-- Jangan sebaliknya (jangan tarik materi internal ke publik).
-- Idealnya project memakai `internify` sebagai dependency/CLI, bukan salinan,
-  supaya update satu arah.
+- Make generic improvements **upstream in `internify-ai`**, then copy into the
+  project.
+- Never the other way around (do not pull internal material into the public
+  repo).
+- Ideally the project depends on `internify-ai` (CLI/package), not a copy, so
+  updates flow one way.
 
 ---
 
-## 9. Ringkas
+## 9. Summary
 
-1. Publish **repo terpisah** `internify` — bukan repo kerja.
-2. Copy `lib`, adapter, article, `template/`, plus `rules.md` + `roles/` (jadikan template).
-3. Sanitasi nama client / URL / spec / daily.
-4. Tambah `LICENSE` + `.gitignore` + `README` + `CONTRACT`.
-5. Verifikasi dengan checklist §7 sebelum `git push`.
+1. Publish a **separate repo** — never the working repo.
+2. Copy only `core/lib`, the adapter, articles, and `template/`.
+3. Sanitize client names / URLs / specs / daily logs.
+4. Add `LICENSE` + `.gitignore` + `README` + `CONTRACT`.
+5. Verify with the checklist in §7 before `git push`.
