@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install adapter deps
+        run: bun install
+        working-directory: adapters/opencode
+
+      - name: Unit + adapter tests
+        run: bun test core/lib adapters/opencode
+
+      - name: Typecheck
+        run: >
+          bunx tsc --noEmit --skipLibCheck
+          --target es2022 --module esnext --moduleResolution bundler --types node
+          plugins/intern-harness.ts ../../core/cli.ts ../../adapters/claude/hook.ts
+        working-directory: adapters/opencode
+
+      - name: Smoke
+        run: bun core/smoke.ts
