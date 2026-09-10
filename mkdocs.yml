@@ -43,6 +43,7 @@ nav:
       - Install: getting-started/install.md
       - Quick start: getting-started/quickstart.md
       - Walkthrough: walkthrough.md
+  - Slash commands: commands.md
   - CLI: cli.md
   - Providers: providers.md
   - Workspace & config: workspace.md
