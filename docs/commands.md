@@ -1,55 +1,41 @@
-# Slash commands
+# Commands
 
-internify ships one slash command — `/work` — and, on opencode, a set of
-`intern_*` tools. Together they drive the loop.
+There are three kinds of "command" in internify — don't mix them up:
 
-## `/work`
+1. **Slash commands** you type inside the AI chat: `/work`, `/boot`, `/status`.
+2. **Tools** the agent calls for you (opencode): `intern_*`. You do **not** type
+   these.
+3. **Terminal commands** (any tool): `internify …`.
 
-Start (or resume) a task from a spec folder.
+---
 
-```text
-/work <spec-folder>
-```
+## In your AI chat
 
-Example:
+### Slash commands (you type them)
 
-```text
-/work .intern/plans/FeatureX
-```
+| Command | What it does |
+|---------|--------------|
+| `/work <spec-folder>` | Start/resume a task — runs the whole loop |
+| `/boot` | Collect/refresh the session context from disk |
+| `/status` | Show the current phase, active step, and pending reads |
 
-It walks the agent through the loop: **index → read → step → edit → evidence →
-close**. If it tries to edit before reading, go out of scope, or close without
-proof, a gate blocks it.
+They are generated per provider by `internify init`, or
+`internify commands generate`:
 
-The command is **generated per provider** by `internify init` (or
-`internify commands generate`). Where it lands:
+| Provider | Location | Format |
+|----------|----------|--------|
+| opencode | `.opencode/command/{work,boot,status}.md` | Markdown |
+| Claude Code | `.claude/commands/{work,boot,status}.md` | Markdown |
+| Gemini CLI | `.gemini/commands/{work,boot,status}.toml` | TOML |
+| Qwen | `.qwen/commands/{work,boot,status}.md` | Markdown |
+| Cursor | `.cursor/rules/{work,boot,status}.mdc` | MDC |
 
-| Provider | Path | Format |
-|----------|------|--------|
-| opencode | `.opencode/command/work.md` | Markdown |
-| Claude Code | `.claude/commands/work.md` | Markdown |
-| Gemini CLI | `.gemini/commands/work.toml` | TOML |
-| Qwen | `.qwen/commands/work.md` | Markdown |
-| Cursor | `.cursor/rules/work.mdc` | MDC |
+In **opencode**, type `/` in the TUI to see the available commands.
 
-The opencode variant drives the `intern_*` tools; the others call the
-`internify` CLI (they have no tool hooks).
+### Tools (the agent calls them — you don't type them)
 
-### The opencode command body
-
-```markdown
-Work on the spec folder: $ARGUMENTS
-
-1. Call `intern_index` with `specRoot="$ARGUMENTS"`.
-2. Read every required read with the `read` tool (required reads MUST use `read`).
-3. For each plan step in the LEDGER, in order:
-   a. `intern_step` with the step id + anchor
-   b. edit only files in Scope
-   c. `intern_evidence` with claim + proof + result
-4. When all steps pass, call `intern_close`.
-```
-
-## Tools (opencode)
+`intern_boot` is a **tool**, not a slash command. You don't type `/intern_boot`;
+you type `/boot`, and that tells the agent to call the `intern_boot` tool.
 
 | Tool | What it does |
 |------|--------------|
@@ -62,32 +48,38 @@ Work on the spec folder: $ARGUMENTS
 | `intern_status` | Show phase + ledger |
 | `intern_override` | One-shot, recorded gate bypass |
 
-## CLI equivalents
+Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 
-Providers without tool hooks use the CLI:
+---
 
-```bash
-internify index <spec-folder>
-internify read <path>
-internify step <id> <anchor>
-internify gate edit <file>        # exit 1 if blocked
-internify evidence <step> --claim "…" --proof "…" --result pass
-internify close
+## In your terminal
+
+| Command | What it does |
+|---------|--------------|
+| `internify init [dir] [--tool …] [--profile …] [--skills …]` | Scaffold + wire a provider |
+| `internify boot` | Collect session context → `state/CONTEXT.md` |
+| `internify index <spec-folder>` | Build `INDEX.md`, start/resume a task |
+| `internify read <path>` | Print a file and mark a required read done |
+| `internify context <path> <selector>` | Return a minimal slice |
+| `internify step <id> <anchor>` | Declare the active step |
+| `internify evidence <step> --claim … --proof … --result pass` | Record proof |
+| `internify close` | Validate evidence, append daily, finish |
+| `internify status` | Show phase + ledger |
+| `internify override <reason>` | One-shot recorded gate bypass |
+| `internify gate edit <file>` | Exit 1 if the file is blocked |
+| `internify gate bash "<cmd>"` | Exit 1 if a shell write is blocked |
+| `internify skills list` | List available skill packs |
+| `internify commands generate [dir] [--providers …]` | Generate the slash commands |
+| `internify update [--force]` | Refresh spec templates |
+
+See the [CLI reference](cli.md) for flags and examples.
+
+---
+
+## The loop
+
+Both the chat command and the CLI drive the same loop:
+
 ```
-
-## Seeing available commands
-
-| Tool | How |
-|------|-----|
-| opencode | type `/` in the TUI (or `/help`) — lists `.opencode/command/*.md` |
-| Claude Code | commands in `.claude/commands/` |
-| Gemini CLI | `.gemini/commands/*.toml` |
-| Cursor | rules in `.cursor/rules/` |
-
-## Generating commands
-
-```bash
-internify commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]
+Boot → Index → Read → Step → Edit → Evidence → Close → Daily
 ```
-
-`init` also generates the command for the chosen `--tool`.

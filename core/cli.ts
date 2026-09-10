@@ -408,6 +408,42 @@ Steps:
 5. \`internify evidence <step> --claim "..." --proof "..." --result pass\`
 6. When all steps pass: \`internify close\`.`;
 
+const BOOT_BODY_TOOLS =
+  "Collect the session context: call `intern_boot` (no arguments) and show the resulting brief to the user.";
+const BOOT_BODY_CLI = "Collect the session context: run `internify boot` and summarize it.";
+
+const STATUS_BODY_TOOLS =
+  "Show the current task: call `intern_status` and summarize phase, active step, and pending reads.";
+const STATUS_BODY_CLI = "Show the current task: run `internify status` and summarize it.";
+
+interface CmdDef {
+  name: string;
+  description: string;
+  tools: string;
+  cli: string;
+}
+
+const COMMANDS: CmdDef[] = [
+  {
+    name: "work",
+    description: "Start a harnessed work task from a spec folder.",
+    tools: WORK_BODY_TOOLS,
+    cli: WORK_BODY_CLI,
+  },
+  {
+    name: "boot",
+    description: "Collect session context from disk.",
+    tools: BOOT_BODY_TOOLS,
+    cli: BOOT_BODY_CLI,
+  },
+  {
+    name: "status",
+    description: "Show the current task phase and pending reads.",
+    tools: STATUS_BODY_TOOLS,
+    cli: STATUS_BODY_CLI,
+  },
+];
+
 function generateCommands(ws: string, names: string[], pkg: string): string[] {
   void pkg;
   const written: string[] = [];
@@ -417,23 +453,22 @@ function generateCommands(ws: string, names: string[], pkg: string): string[] {
       console.log(`  ! unknown provider: ${name}`);
       continue;
     }
-    const body = (p.name === "opencode" ? WORK_BODY_TOOLS : WORK_BODY_CLI).replaceAll(
-      "{ARGS}",
-      p.argsToken,
-    );
-    const file = commandFileName(p, "work");
-    const dest = join(ws, p.commandDir, file);
-    if (existsSync(dest)) {
-      console.log(`  = ${name} (${p.commandDir}/${file} exists)`);
-      continue;
+    for (const def of COMMANDS) {
+      const body = (p.name === "opencode" ? def.tools : def.cli).replaceAll(
+        "{ARGS}",
+        p.argsToken,
+      );
+      const file = commandFileName(p, def.name);
+      const dest = join(ws, p.commandDir, file);
+      if (existsSync(dest)) {
+        console.log(`  = ${name}:${def.name} exists`);
+        continue;
+      }
+      mkdirSync(dirname(dest), { recursive: true });
+      writeFileSync(dest, renderCommand(p, def.name, def.description, body));
+      written.push(`${name}:${dest}`);
     }
-    mkdirSync(dirname(dest), { recursive: true });
-    writeFileSync(
-      dest,
-      renderCommand(p, "work", "Start a harnessed work task from a spec folder.", body),
-    );
-    written.push(`${name}:${dest}`);
-    console.log(`  + ${name} -> ${p.commandDir}/${file}${p.hooks ? "" : " (no hooks: command only)"}`);
+    console.log(`  + ${name} -> ${p.commandDir}/ {work,boot,status}${p.hooks ? "" : " (no hooks: command only)"}`);
   }
   return written;
 }
