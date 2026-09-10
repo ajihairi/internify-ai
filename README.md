@@ -7,6 +7,8 @@
 model's head — so agents stop hallucinating and stop losing grounding across
 sessions and compactions.
 
+📖 **Docs:** <https://ajihairi.github.io/internify-ai/>
+
 The repository is **internify-ai**; the tool/CLI is **internify**. internify is
 the generalized, portable form of a harness that already runs in production as
 the `/work` command: it boots a session, indexes a spec, enforces layered gates,
@@ -362,10 +364,12 @@ rewriting the workflow.
 ## Articles
 
 - [Design](./docs/DESIGN.md)
-- [01 — What we built](./article/01-what-we-built.md)
-- [02 — Portability](./article/02-portability.md)
-- [03 — Publishing](./article/03-publishing.md)
-- [04 — internify workspace model](./article/04-internify-workspace.md)
+- [01 — What we built](./docs/articles/01-what-we-built.md)
+- [02 — Portability](./docs/articles/02-portability.md)
+- [03 — Publishing](./docs/articles/03-publishing.md)
+- [04 — internify workspace model](./docs/articles/04-internify-workspace.md)
+
+Docs site: <https://ajihairi.github.io/internify-ai/>
 
 ## Author
 

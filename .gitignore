@@ -5,3 +5,6 @@ node_modules/
 
 # runtime state (per target project)
 .intern/state/
+
+# mkdocs build output
+site/

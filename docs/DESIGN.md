@@ -1,6 +1,6 @@
 # internify-ai — Design
 
-Status: v0 · Architecture and rationale. See [`../CONTRACT.md`](../CONTRACT.md)
+Status: v0 · Architecture and rationale. See [`CONTRACT.md`](contract.md)
 for the stable interface.
 
 ## 1. Purpose
