@@ -1,7 +1,18 @@
-# internify-ai
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ajihairi/internify-ai/main/docs/assets/logo-full.png" alt="internify logo" width="280">
+</p>
 
-[![npm version](https://img.shields.io/npm/v/internify-ai.svg)](https://www.npmjs.com/package/internify-ai)
-[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+<p align="center">
+  <a href="https://www.npmjs.com/package/internify-ai"><img src="https://img.shields.io/npm/v/internify-ai?style=flat-square&logo=npm" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/internify-ai"><img src="https://img.shields.io/npm/dm/internify-ai?style=flat-square&logo=npm" alt="npm downloads"></a>
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License"></a>
+  <a href="https://github.com/ajihairi/internify-ai/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/ajihairi/internify-ai/ci.yml?style=flat-square&logo=github-actions" alt="CI"></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript"></a>
+  <a href="https://ajihairi.github.io/internify-ai/"><img src="https://img.shields.io/badge/docs-ajihairi.github.io%2Finternify--ai-blue?style=flat-square&logo=github" alt="Docs"></a>
+</p>
+
+> **internify** — a disk-backed engineer loop for AI agents. Context on disk, not
+> in the model's head.
 
 **A disk-backed engineer loop for AI agents.** Context lives on disk, not in the
 model's head — so agents stop hallucinating and stop losing grounding across

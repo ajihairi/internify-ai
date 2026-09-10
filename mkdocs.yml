@@ -7,6 +7,8 @@ edit_uri: edit/main/docs/
 
 theme:
   name: material
+  logo: assets/logo-square.png
+  favicon: assets/logo-square.png
   font:
     text: Inter
     code: JetBrains Mono

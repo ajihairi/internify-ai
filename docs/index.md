@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo-full.png" alt="internify" width="300">
+</p>
+
 # internify
 
 **A disk-backed engineer loop for AI agents.** Context lives on disk, not in the
