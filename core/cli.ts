@@ -265,8 +265,20 @@ function pkgRoot(): string {
   return dirname(dirname(fileURLToPath(import.meta.url)));
 }
 
+function positionals(argv: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i].startsWith("--")) {
+      i++; // skip the flag's value
+      continue;
+    }
+    out.push(argv[i]);
+  }
+  return out;
+}
+
 function cmdInit(argv: string[], f: Record<string, string>): void {
-  const targetArg = argv.find((a) => !a.startsWith("--"));
+  const targetArg = positionals(argv)[0];
   const ws = targetArg ? resolve(targetArg) : root;
   const tool = f.tool ?? "opencode";
   const know = f.knowledge ?? ".intern";
