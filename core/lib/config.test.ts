@@ -11,6 +11,7 @@ test("defaults: knowledge=<root>/.intern, target=root, plans=<knowledge>/plans",
   expect(p.target).toBe(r);
   expect(p.root).toBe(r);
   expect(p.plans).toBe(join(r, ".intern", "plans"));
+  expect(p.daily).toBe(join(r, ".intern", "daily"));
 });
 
 test("internify.json overrides target + knowledge", () => {
@@ -34,6 +35,17 @@ test("plansDir overrides the plans location", () => {
   const p = loadPaths(r);
   expect(p.knowledge).toBe(join(r, "intern"));
   expect(p.plans).toBe(join(r, "intern", "superpowers", "plans"));
+});
+
+test("dailyDir overrides the daily location", () => {
+  const r = mkdtempSync(join(tmpdir(), "internify-cfg-"));
+  writeFileSync(
+    join(r, "internify.json"),
+    JSON.stringify({ plansDir: "01-projects", dailyDir: "06-daily" }),
+  );
+  const p = loadPaths(r);
+  expect(p.plans).toBe(join(r, ".intern", "01-projects"));
+  expect(p.daily).toBe(join(r, ".intern", "06-daily"));
 });
 
 test("malformed config falls back to defaults", () => {

@@ -91,13 +91,13 @@ export function getActive(
   }
 }
 
-export function appendDaily(knowledgeRoot: string, text: string): string {
+export function appendDaily(knowledgeRoot: string, text: string, dailyRoot?: string): string {
   const d = new Date();
   const dd = String(d.getDate()).padStart(2, "0");
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = String(d.getFullYear());
   const name = `${dd}-${mm}-${yyyy}.md`;
-  const dir = join(knowledgeRoot, "daily");
+  const dir = dailyRoot ?? join(knowledgeRoot, "daily");
   ensureDir(dir);
   const p = join(dir, name);
   const prev = existsSync(p)
@@ -107,8 +107,8 @@ export function appendDaily(knowledgeRoot: string, text: string): string {
   return name;
 }
 
-export function listDaily(knowledgeRoot: string): string[] {
-  const dir = join(knowledgeRoot, "daily");
+export function listDaily(knowledgeRoot: string, dailyRoot?: string): string[] {
+  const dir = dailyRoot ?? join(knowledgeRoot, "daily");
   if (!existsSync(dir)) return [];
   return readdirSync(dir).filter((f) => /^\d{1,2}-\d{2}-\d{4}\.md$/.test(f));
 }
@@ -120,6 +120,7 @@ export function listSpecs(knowledgeRoot: string, plansRoot?: string): string[] {
   const walk = (d: string, depth: number, base: string) => {
     if (depth > 3) return;
     for (const e of readdirSync(d)) {
+      if (e.startsWith("_")) continue; // skip _template etc.
       const p = join(d, e);
       if (statSync(p).isDirectory()) {
         out.push(relative(base, p));

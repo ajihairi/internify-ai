@@ -11,14 +11,14 @@
 - **Skill packs**: bundled + external resolution, `init --skills`, `skills list`.
 - **Status-aware gates**: `status: draft|review|fixed` in frontmatter → optional
   reads for drafts, `fixed` docs are read-only.
+- **Advanced profile**: `internify init --profile advanced` scaffolds PARA
+  (`00-inbox…06-daily`) with `plansDir`/`dailyDir`.
 - Docs site (Material for MkDocs) on GitHub Pages.
 - Published: [`internify-ai`](https://www.npmjs.com/package/internify-ai) on npm.
 - Tests: core units + adapter smoke; CI workflow.
 
 ## Next
 
-- **Advanced profile**: `internify init --profile advanced` scaffolds PARA
-  (`00-inbox…06-daily`) and writes `plansDir`.
 - **More providers**: Gemini CLI, Cursor; a richer Claude adapter
   (`PostToolUse` to auto-mark reads).
 - **`internify update`** — refresh template/prompts like uteuk.

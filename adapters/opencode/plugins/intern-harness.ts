@@ -40,6 +40,7 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
   const knowledge = paths.knowledge;
   const target = paths.target;
   const plans = paths.plans;
+  const daily = paths.daily;
 
   return {
     "experimental.chat.system.transform": async (_input, output) => {
@@ -165,7 +166,7 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           "Collect session context from disk and write .intern/state/CONTEXT.md. Call once per new session.",
         args: {},
         async execute() {
-          const dailies = listDaily(knowledge);
+          const dailies = listDaily(knowledge, daily);
           const latest = pickLatestDaily(dailies);
           let dailyText = "";
           if (latest) {
@@ -299,17 +300,18 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           if (!ledger) return "Ledger missing.";
           const d = canClose(ledger, readEvidence(knowledge, active.taskId));
           if (!d.ok) throw new Error(d.reason);
-          const daily = appendDaily(
+          const dailyName = appendDaily(
             knowledge,
             `### internify task closed — ${active.taskId} ${nowIso()}\n` +
               `- steps: ${ledger.steps.map((s) => s.id).join(", ")}\n` +
               `- evidence: .intern/state/tasks/${active.taskId}/EVIDENCE.md`,
+            daily,
           );
           ledger.steps.forEach((s) => (s.done = true));
           ledger.phase = "done";
           ledger.updated = nowIso();
           saveLedger(knowledge, ledger);
-          return `Task ${active.taskId} closed. Daily log: ${daily}`;
+          return `Task ${active.taskId} closed. Daily log: ${dailyName}`;
         },
       }),
 

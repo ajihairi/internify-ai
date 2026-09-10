@@ -49,7 +49,7 @@ import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
 const root = process.env.INTERNIFY_ROOT
   ? resolve(process.env.INTERNIFY_ROOT)
   : process.cwd();
-const { knowledge, target, plans } = loadPaths(root);
+const { knowledge, target, plans, daily } = loadPaths(root);
 
 function fail(msg: string): never {
   console.error(msg);
@@ -76,7 +76,7 @@ function flags(argv: string[]): Record<string, string> {
 }
 
 function cmdBoot(): void {
-  const dailies = listDaily(knowledge);
+  const dailies = listDaily(knowledge, daily);
   const latest = pickLatestDaily(dailies);
   let dailyText = "";
   if (latest) {
@@ -205,17 +205,18 @@ function cmdClose(): void {
   if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
   const d = canClose(ledger, readEvidence(knowledge, active.taskId));
   if (!d.ok) fail(d.reason ?? "blocked");
-  const daily = appendDaily(
+  const dailyName = appendDaily(
     knowledge,
     `### internify task closed — ${active.taskId} ${nowIso()}\n` +
       `- steps: ${ledger.steps.map((s) => s.id).join(", ")}\n` +
       `- evidence: .intern/state/tasks/${active.taskId}/EVIDENCE.md`,
+    daily,
   );
   ledger.steps.forEach((s) => (s.done = true));
   ledger.phase = "done";
   ledger.updated = nowIso();
   saveLedger(knowledge, ledger);
-  console.log(`Task ${active.taskId} closed. Daily: .intern/daily/${daily}`);
+  console.log(`Task ${active.taskId} closed. Daily: ${dailyName}`);
 }
 
 function cmdStatus(): void {
@@ -407,6 +408,7 @@ async function cmdInit(argv: string[], f: Record<string, string>): Promise<void>
   const ws = targetArg ? resolve(targetArg) : root;
   const tool = f.tool ?? "opencode";
   const know = f.knowledge ?? ".intern";
+  const profile = f.profile ?? "simple";
   const pkg = pkgRoot();
   const template = join(pkg, "template");
 
@@ -417,6 +419,25 @@ async function cmdInit(argv: string[], f: Record<string, string>): Promise<void>
   const kdest = join(ws, know);
   if (existsSync(kdest)) {
     console.log(`${know}/ already exists — left untouched`);
+  } else if (profile === "advanced") {
+    const para = [
+      "00-inbox",
+      "01-projects",
+      "02-areas",
+      "03-resources",
+      "04-archive",
+      "05-templates",
+      "06-daily",
+    ];
+    for (const d of para) mkdirSync(join(kdest, d), { recursive: true });
+    cpSync(join(template, ".intern", "rules.md"), join(kdest, "rules.md"));
+    cpSync(join(template, ".intern", "roles"), join(kdest, "roles"), { recursive: true });
+    cpSync(join(template, ".intern", "plans", "_template"), join(kdest, "05-templates", "_template"), {
+      recursive: true,
+    });
+    console.log(`scaffolded ${know}/ (advanced: PARA)`);
+  } else if (profile !== "simple") {
+    fail(`unknown profile: ${profile} (use simple|advanced)`);
   } else {
     cpSync(join(template, ".intern"), kdest, { recursive: true });
     console.log(`scaffolded ${know}/`);
@@ -430,7 +451,7 @@ async function cmdInit(argv: string[], f: Record<string, string>): Promise<void>
     console.log("AGENTS.md already exists — left untouched");
   }
 
-  if (f.target || f.knowledge || f.plansDir) {
+  if (f.target || f.knowledge || f.plansDir || f.dailyDir || profile === "advanced") {
     const cfgPath = join(ws, "internify.json");
     let cfg: Record<string, unknown> = {};
     if (existsSync(cfgPath)) {
@@ -443,6 +464,9 @@ async function cmdInit(argv: string[], f: Record<string, string>): Promise<void>
     if (f.target) cfg.target = f.target;
     if (f.knowledge) cfg.knowledge = f.knowledge;
     if (f.plansDir) cfg.plansDir = f.plansDir;
+    else if (profile === "advanced") cfg.plansDir = "01-projects";
+    if (f.dailyDir) cfg.dailyDir = f.dailyDir;
+    else if (profile === "advanced") cfg.dailyDir = "06-daily";
     writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
     console.log("wrote internify.json");
   }
@@ -513,8 +537,9 @@ function usage(): void {
 
 Commands:
   init [dir] [--tool opencode|claude|none] [--knowledge .intern]
+                                    [--profile simple|advanced]
                                     [--target <projectDir>] [--plansDir <dir>]
-                                    [--skills all|none|a,b] [--yes]
+                                    [--dailyDir <dir>] [--skills all|none|a,b] [--yes]
                                     scaffold knowledge + wire the provider
   skills list                       list available skill packs
   boot                              collect session context -> .intern/state/CONTEXT.md
@@ -530,7 +555,7 @@ Commands:
   gate bash "<command>"             exit 1 if the bash write is blocked
 
 Env: INTERNIFY_ROOT (default: cwd). Config: <root>/internify.json
-  { "target": "...", "knowledge": "..." }`);
+  { "target", "knowledge", "plansDir", "dailyDir" }`);
 }
 
 const [cmd, ...rest] = process.argv.slice(2);

@@ -19,6 +19,8 @@ export interface Paths {
   target: string;
   /** Absolute path to the plans directory (default `<knowledge>/plans`). */
   plans: string;
+  /** Absolute path to the daily log directory (default `<knowledge>/daily`). */
+  daily: string;
 }
 
 export function loadPaths(root: string): Paths {
@@ -26,6 +28,7 @@ export function loadPaths(root: string): Paths {
   let knowledge = join(abs, KNOWLEDGE_DIR);
   let target = abs;
   let plans = "";
+  let daily = "";
   const cfg = join(abs, "internify.json");
   if (existsSync(cfg)) {
     try {
@@ -39,10 +42,14 @@ export function loadPaths(root: string): Paths {
       if (typeof c.plansDir === "string") {
         plans = isAbsolute(c.plansDir) ? c.plansDir : resolve(knowledge, c.plansDir);
       }
+      if (typeof c.dailyDir === "string") {
+        daily = isAbsolute(c.dailyDir) ? c.dailyDir : resolve(knowledge, c.dailyDir);
+      }
     } catch {
       // ignore malformed config; fall back to defaults
     }
   }
   if (!plans) plans = join(knowledge, "plans");
-  return { root: abs, knowledge, target, plans };
+  if (!daily) daily = join(knowledge, "daily");
+  return { root: abs, knowledge, target, plans, daily };
 }

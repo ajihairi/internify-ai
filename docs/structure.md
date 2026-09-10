@@ -24,6 +24,12 @@ Inspired by PARA (Projects, Areas, Resources, Archive) and an "AI-assisted secon
 brain". Useful when you want durable notes alongside specs, and want the agent to
 tell **drafts** from **canonical** docs.
 
+Scaffold it with:
+
+```bash
+internify init --profile advanced
+```
+
 ```
 <knowledge>/
 ├── 00-inbox/        ← raw captures (drafts)
