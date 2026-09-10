@@ -36,6 +36,14 @@ Boot → Index → Read → Step → Edit → Evidence → Close → Daily
 
 </div>
 
+## See it in action
+
+Inside opencode, the agent drives the loop through `/work`:
+
+![opencode session running /work](assets/opencode-session.png)
+
+More in the [Walkthrough](walkthrough.md).
+
 ## Install
 
 ```bash
