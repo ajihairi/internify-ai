@@ -9,8 +9,8 @@ the generalized, portable form of a harness that already runs in production as
 the `/work` command: it boots a session, indexes a spec, enforces layered gates,
 and records evidence.
 
-> Status: v0 (extracted reference implementation). Works today with **opencode**.
-> CLI + other tool adapters are on the roadmap.
+> Status: v1. Works today with **opencode** (adapter) and any tool via the
+> **CLI**. Unit + smoke tests included.
 
 ---
 
@@ -18,6 +18,7 @@ and records evidence.
 
 - [Why](#why)
 - [How it works](#how-it-works)
+- [Walkthrough: from zero](#walkthrough-from-zero)
 - [Repository layout](#repository-layout)
 - [Quick start](#quick-start)
 - [CLI (any tool)](#cli-any-tool)
@@ -46,25 +47,53 @@ Boot → Index → Read → Step → Edit → Evidence → Close → Daily
   and write it to `state/CONTEXT.md`.
 - **Index** — scan a spec folder, resolve referenced files, hash them, and build
   an `INDEX.md`. The agent cannot invent paths.
-- **Gates** — three layered checks block edits:
+- **Gates** — layered checks block edits:
   1. **Read** — must read the required files first.
   2. **Scope / step** — must declare a step and stay within allowed files.
-  3. **Evidence** — cannot close a task without passing evidence per step.
+  3. **Anchor** — the step anchor must be declared by a plan step (status `ok`).
+  4. **Bash** — shell writes must be scoped (or use `edit` / `write`).
+  5. **Evidence** — cannot close a task without passing evidence per step.
 - **Close** — validate evidence and append the daily log.
 
 All working state lives under `.intern/state/` and is re-injected from disk each
 turn. New session or compaction → no loss of grounding.
 
+## Walkthrough: from zero
+
+Set up internify in an empty workspace, with your project cloned next to it.
+
+![Setting up internify in an empty workspace](./docs/assets/from-zero.svg)
+
+Then every work session runs the same enforced loop:
+
+![The enforced loop: read → step → edit → evidence → close](./docs/assets/session.svg)
+
+Inside opencode it looks like this:
+
+```text
+> /work .intern/plans/FeatureX
+
+INDEX built. task=featurex reads=4
+→ reading required reads…
+→ Step S1 active (anchor A1).
+→ OK: src/Feature.swift is editable.
+→ Evidence recorded for S1 (pass).
+→ Task featurex closed. Daily: .intern/daily/10-09-2026.md
+```
+
+(The images are illustrative transcripts; the underlying output is real.)
+
 ## Repository layout
 
 ```
-internify/
+internify-ai/
 ├── README.md
 ├── CONTRACT.md              ← the stable contract (schemas, actions, gates)
 ├── LICENSE
 ├── core/                    ← tool-agnostic logic (pure, tested)
-│   ├── lib/                 ← markdown, types, state, index-builder, gates,
-│   │                          context, io, boot (+ *.test.ts)
+│   ├── lib/                 ← markdown, types, state, config, index-builder,
+│   │                          gates, context, io, boot (+ *.test.ts)
+│   ├── cli.ts               ← the tool-agnostic CLI
 │   └── smoke.ts             ← end-to-end simulation
 ├── adapters/
 │   └── opencode/            ← plugin + skill + command for opencode
@@ -84,35 +113,60 @@ internify/
 
 ## Quick start
 
-### With opencode
+### From an empty workspace (opencode)
 
 ```bash
-# 1. Install the adapter's deps
-cd adapters/opencode && bun install && cd -
+mkdir my-workspace && cd my-workspace
 
-# 2. Scaffold into your project (copy template + adapter)
-cp -r template/AGENTS.md /path/to/project/AGENTS.md
-cp -r template/.intern    /path/to/project/.intern
-cp -r adapters/opencode   /path/to/project/.opencode
+# 1. Clone your project and the tool, side by side
+git clone git@github.com:you/my-project.git
+git clone git@github.com:ajihairi/internify-ai.git
 
-# 3. Restart opencode from your project root (config is not hot-reloaded).
+# 2. Scaffold the knowledge dir from the template
+cp -r internify-ai/template/.intern   .intern
+cp    internify-ai/template/AGENTS.md AGENTS.md
 
-# 4. Verify
-cd core && bun test lib && bun smoke.ts && cd -
+# 3. Install the adapter's deps
+(cd internify-ai/adapters/opencode && bun install)
+
+# 4. Tell opencode to load the adapter plugin
+cat > opencode.json <<'JSON'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["./internify-ai/adapters/opencode/plugins/intern-harness.ts"]
+}
+JSON
+
+# 5. Restart opencode, then start a session
 ```
 
-Then, inside opencode:
+The plugin resolves `../../../core/lib` relative to its own file, so keep
+`internify-ai` where you cloned it (or adjust the plugin path).
 
-```text
-/work .intern/plans/<SpecName>
+### Optional: project beside the tool (Mode B)
+
+If your project lives in a subfolder — or you want a non-standard knowledge dir —
+add `internify.json` at the workspace root:
+
+```json
+{
+  "knowledge": "intern",
+  "plansDir": "superpowers/plans",
+  "target": "my-project"
+}
 ```
+
+- `target` — where the project code lives (edits are scoped here).
+- `knowledge` — where rules/roles/plans/daily/state live.
+- `plansDir` — plans folder, relative to `knowledge` (default `plans`).
 
 ### Inspecting the core
 
 ```bash
-cd core
-bun test lib      # unit tests
-bun smoke.ts      # end-to-end simulation (temp fixture)
+cd internify-ai
+(cd adapters/opencode && bun install)   # dev deps for adapter tests
+bun test core/lib adapters/opencode
+bun core/smoke.ts
 ```
 
 ## CLI (any tool)
