@@ -100,14 +100,42 @@ Open your AI tool and start a spec:
 The agent can only edit files in scope, must declare a step, and must record
 evidence before closing. You don't do anything special — the tool enforces it.
 
-### Turning it off
+### Turning it off / on
 
-internify watches one environment variable: `INTERN_HARNESS`.
+internify watches one environment variable: `INTERN_HARNESS`. Only the exact
+value `off` disables it; anything else (or unset) means **on**.
+
+**One run only:**
 
 ```bash
-INTERN_HARNESS=off opencode     # just this run
-export INTERN_HARNESS=off       # for the whole shell session
+INTERN_HARNESS=off opencode      # OFF, just this run
+INTERN_HARNESS=on  opencode      # ON  (or simply: opencode)
+
+INTERN_HARNESS=off claude        # OFF for Claude Code
+INTERN_HARNESS=on  claude        # ON
 ```
+
+**Current shell session:**
+
+```bash
+export INTERN_HARNESS=off        # OFF
+opencode                         # (or: claude)
+unset INTERN_HARNESS             # ON again
+
+export INTERN_HARNESS=on        # ON (explicit)
+```
+
+**Permanently (zsh / bash):**
+
+```bash
+echo 'export INTERN_HARNESS=off' >> ~/.zshrc   # keep it OFF
+# or
+echo 'export INTERN_HARNESS=on'  >> ~/.zshrc   # keep it ON
+source ~/.zshrc
+```
+
+> The tool inherits the variable from the shell that launches it. If you launch
+> from a GUI (not a terminal), set it in your shell profile first.
 
 When it is `off`:
 
