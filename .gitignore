@@ -4,7 +4,7 @@ node_modules/
 *.tmp
 
 # runtime state (per target project)
-.intern/state/
+.intern/
 
 # mkdocs build output
 site/

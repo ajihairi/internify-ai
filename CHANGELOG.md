@@ -6,6 +6,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-10
+
+### Added
+
+- `internify init --profile advanced` — scaffolds PARA (`00-inbox…06-daily`) and
+  writes `plansDir: 01-projects`, `dailyDir: 06-daily`.
+- `dailyDir` config (with `Paths.daily`); `appendDaily`/`listDaily` take a daily
+  root.
+- `internify update [--force]` — refresh spec templates.
+- `internify commands install [dir] [--tool opencode|claude]` — install the
+  `/work` command; `init` now installs it too.
+- Claude `PostToolUse` hook (`adapters/claude/read.ts`) marks reads;
+  `io.markRead`.
+- `listSpecs` skips `_template`.
+
 ## [0.3.0] - 2026-09-10
 
 ### Added

@@ -32,6 +32,23 @@ export function saveLedger(knowledgeRoot: string, ledger: Ledger) {
   writeFileSync(join(dir, "LEDGER.md"), serializeLedger(ledger));
 }
 
+export function markRead(knowledgeRoot: string, taskId: string, relPath: string): boolean {
+  const ledger = loadLedger(knowledgeRoot, taskId);
+  if (!ledger) return false;
+  let changed = false;
+  for (const r of ledger.requiredReads) {
+    if (!r.read && r.path === relPath) {
+      r.read = true;
+      changed = true;
+    }
+  }
+  if (changed) {
+    ledger.updated = new Date().toISOString();
+    saveLedger(knowledgeRoot, ledger);
+  }
+  return changed;
+}
+
 export function saveIndex(knowledgeRoot: string, taskId: string, idx: IndexFile) {
   const dir = taskDir(knowledgeRoot, taskId);
   ensureDir(dir);
@@ -52,8 +69,7 @@ export function appendEvidence(knowledgeRoot: string, taskId: string, text: stri
   writeFileSync(p, prev.trimEnd() + "\n\n" + text + "\n");
 }
 
-export function readEvidence(knowledgeRoot: string, taskId: string): EvidenceRecord[] {
-  const p = join(taskDir(knowledgeRoot, taskId), "EVIDENCE.md");
+export function readEvidence(knowledgeRoot: string, taskId: string): EvidenceRecord[] {  const p = join(taskDir(knowledgeRoot, taskId), "EVIDENCE.md");
   if (!existsSync(p)) return [];
   const out: EvidenceRecord[] = [];
   for (const line of readFileSync(p, "utf8").split("\n")) {

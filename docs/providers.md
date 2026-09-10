@@ -40,13 +40,20 @@ ledger on compaction.
         "matcher": "Edit|Write|MultiEdit",
         "hooks": [{ "type": "command", "command": "bun \"<path>/adapters/claude/hook.ts\"" }]
       }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [{ "type": "command", "command": "bun \"<path>/adapters/claude/read.ts\"" }]
+      }
     ]
   }
 }
 ```
 
-The hook reads the tool payload on stdin, evaluates the same gates, and exits `2`
-(block) with a reason on stderr when the action is not allowed.
+- **PreToolUse** (`hook.ts`) gates Edit/Write/MultiEdit and Bash (exit `2`).
+- **PostToolUse** (`read.ts`) marks a file as read after Read (parity with the
+  opencode `tool.execute.after` hook).
 
 ## Any tool (CLI)
 

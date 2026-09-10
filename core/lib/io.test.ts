@@ -6,6 +6,7 @@ import { emptyLedger } from "./state";
 import {
   saveLedger,
   loadLedger,
+  markRead,
   saveIndex,
   readIndex,
   appendEvidence,
@@ -56,8 +57,7 @@ test("evidence append/read", () => {
   ]);
 });
 
-test("active set/get + shape guard", () => {
-  const k = tmp();
+test("active set/get + shape guard", () => {  const k = tmp();
   expect(getActive(k)).toBeNull();
   setActive(k, "t1", "s");
   expect(getActive(k)).toEqual({ taskId: "t1", specRoot: "s" });
@@ -87,4 +87,16 @@ test("writeContext writes CONTEXT.md", () => {
   const k = tmp();
   writeContext(k, "hello");
   expect(existsSync(join(k, "state", "CONTEXT.md"))).toBe(true);
+});
+
+test("markRead marks a required read by path", () => {
+  const k = tmp();
+  const l = emptyLedger("t1", "s");
+  l.requiredReads = [
+    { key: "A.swift", path: "src/A.swift", kind: "code", hash: "h", read: false },
+  ];
+  saveLedger(k, l);
+  expect(markRead(k, "t1", "src/A.swift")).toBe(true);
+  expect(loadLedger(k, "t1")?.requiredReads[0].read).toBe(true);
+  expect(markRead(k, "t1", "nope")).toBe(false);
 });

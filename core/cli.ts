@@ -379,8 +379,23 @@ async function promptSkills(pkg: string): Promise<string[]> {
   return [];
 }
 
-function cmdSkillsList(pkg: string): void {
-  const packs = listPacks(pkg);
+function installWorkCommand(ws: string, tool: string, pkg: string): void {
+  const src = join(pkg, "adapters/opencode/command/work.md");
+  if (!existsSync(src)) return;
+  let dest: string | null = null;
+  if (tool === "opencode") dest = join(ws, ".opencode", "command", "work.md");
+  else if (tool === "claude") dest = join(ws, ".claude", "commands", "work.md");
+  if (!dest) return;
+  if (existsSync(dest)) {
+    console.log(`  = /work command (${tool}) already present`);
+    return;
+  }
+  mkdirSync(dirname(dest), { recursive: true });
+  cpSync(src, dest);
+  console.log(`wired /work command -> ${dest}`);
+}
+
+function cmdSkillsList(pkg: string): void {  const packs = listPacks(pkg);
   if (packs.length === 0) {
     console.log("no skill packs found");
     return;
@@ -507,11 +522,22 @@ async function cmdInit(argv: string[], f: Record<string, string>): Promise<void>
       hooks: [{ type: "command", command: `bun "${hook}"` }],
     });
     hooks.PreToolUse = pre;
+    const readHook = join(pkg, "adapters/claude/read.ts");
+    const post = Array.isArray(hooks.PostToolUse) ? (hooks.PostToolUse as unknown[]) : [];
+    post.push({
+      matcher: "Read",
+      hooks: [{ type: "command", command: `bun "${readHook}"` }],
+    });
+    hooks.PostToolUse = post;
     s.hooks = hooks;
     writeFileSync(setPath, JSON.stringify(s, null, 2) + "\n");
-    console.log(`wired claude hook -> ${hook}`);
+    console.log(`wired claude hooks -> ${hook}`);
   } else if (tool !== "none") {
     fail(`unknown tool: ${tool}`);
+  }
+
+  if (tool === "opencode" || tool === "claude") {
+    installWorkCommand(ws, tool, pkg);
   }
 
   let skillNames: string[] = [];
@@ -532,6 +558,30 @@ async function cmdInit(argv: string[], f: Record<string, string>): Promise<void>
   );
 }
 
+function cmdUpdate(f: Record<string, string>): void {
+  const pkg = pkgRoot();
+  const template = join(pkg, "template");
+  if (!existsSync(template)) fail(`template not found at ${template}`);
+  const tplSrc = join(template, ".intern", "plans", "_template");
+  if (!existsSync(tplSrc)) fail(`template skeleton not found at ${tplSrc}`);
+  const tplDest = existsSync(join(knowledge, "05-templates"))
+    ? join(knowledge, "05-templates", "_template")
+    : join(plans, "_template");
+  mkdirSync(dirname(tplDest), { recursive: true });
+  cpSync(tplSrc, tplDest, { recursive: true, force: true });
+  console.log(`updated spec templates -> ${tplDest}`);
+  if (f.force === "true") {
+    cpSync(join(template, ".intern", "rules.md"), join(knowledge, "rules.md"), { force: true });
+    cpSync(join(template, ".intern", "roles"), join(knowledge, "roles"), {
+      recursive: true,
+      force: true,
+    });
+    console.log("force: refreshed rules.md + roles/");
+  } else {
+    console.log("(rules.md and roles/ untouched — use --force to refresh them)");
+  }
+}
+
 function usage(): void {
   console.log(`internify — disk-backed engineer loop for AI agents
 
@@ -542,6 +592,9 @@ Commands:
                                     [--dailyDir <dir>] [--skills all|none|a,b] [--yes]
                                     scaffold knowledge + wire the provider
   skills list                       list available skill packs
+  commands install [dir] [--tool opencode|claude]
+                                    install the /work command for a provider
+  update [--force]                  refresh spec templates (roles/rules with --force)
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task
   read <path>                       print a file and mark a required read as done
@@ -566,6 +619,18 @@ switch (cmd) {
   case "skills":
     if (rest[0] === "list") cmdSkillsList(pkgRoot());
     else fail("usage: internify skills list");
+    break;
+  case "update":
+    cmdUpdate(flags(rest));
+    break;
+  case "commands":
+    if (rest[0] === "install") {
+      const cf = flags(rest);
+      const dir = positionals(rest.slice(1))[0];
+      installWorkCommand(dir ? resolve(dir) : root, cf.tool ?? "opencode", pkgRoot());
+    } else {
+      fail("usage: internify commands install [dir] [--tool opencode|claude]");
+    }
     break;
   case "boot":
     cmdBoot();
