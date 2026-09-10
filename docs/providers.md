@@ -5,10 +5,14 @@ internify plugs the same loop into different AI tools.
 | Provider | Integration | Enforces |
 |----------|-------------|----------|
 | opencode | plugin (`tool.execute.before/after`) + skill + `/work` | edit / write / bash |
-| Claude Code | `PreToolUse` hook (`adapters/claude/hook.ts`) | Edit / Write / MultiEdit / Bash |
+| Claude Code | `PreToolUse` + `PostToolUse` hooks (`adapters/claude/`) | Edit / Write / MultiEdit / Bash |
+| Gemini CLI | generated command (`.gemini/commands/work.toml`) | via the CLI only |
+| Qwen | generated command (`.qwen/commands/work.md`) | via the CLI only |
+| Cursor | generated rule (`.cursor/rules/work.mdc`) | via the CLI only |
 | any (CLI) | `internify gate edit` / `internify gate bash` | via git hooks or wrappers |
 
-`internify init --tool <name>` wires it for you.
+`internify init --tool <name>` wires it. Providers without tool hooks get the
+`/work` **command only** (no gating) — they can still enforce via the CLI.
 
 ## opencode
 

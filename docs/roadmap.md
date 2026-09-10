@@ -14,18 +14,20 @@
 - **Advanced profile**: `internify init --profile advanced` scaffolds PARA
   (`00-inbox…06-daily`) with `plansDir`/`dailyDir`.
 - **`internify update`** — refresh spec templates (`--force` for rules/roles).
-- **Command install** — `/work` for opencode (`.opencode/command`) and Claude
-  (`.claude/commands`); Claude `PostToolUse` marks reads.
+- **Command generator** — one source → `/work` for opencode, Claude, Gemini
+  (TOML), Qwen, Cursor (MDC); `commands generate`, wired by `init`. Claude
+  `PostToolUse` marks reads.
 - Docs site (Material for MkDocs) on GitHub Pages.
 - Published: [`internify-ai`](https://www.npmjs.com/package/internify-ai) on npm.
 - Tests: core units + adapter smoke; CI workflow.
 
 ## Next
 
-- **More providers**: Gemini CLI, Cursor (Gemini uses TOML commands).
-- **Full command generator** — generate all pipeline commands per agent from one
-  source.
-- **Provider-agnostic hooks** — a single adapter contract beyond opencode/Claude.
+- **Provider hooks beyond opencode/Claude** — where a tool exposes pre-tool
+  hooks, gate edits the same way.
+- **Provider-specific config** — write tool settings (not just commands) for
+  Gemini/Qwen/Cursor when their formats allow.
+- **More pipeline commands** — generalize beyond `/work`.
 
 ## Maintenance principles
 

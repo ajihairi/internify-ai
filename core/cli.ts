@@ -29,6 +29,12 @@ import { canEdit, canStep, canClose, canBash } from "./lib/gates";
 import { sliceFunction, sliceSection } from "./lib/context";
 import { loadPaths } from "./lib/config";
 import { parseStatus } from "./lib/status";
+import {
+  commandFileName,
+  getProvider,
+  providerNames,
+  renderCommand,
+} from "./lib/providers";
 import { slug, emptyLedger, nowIso } from "./lib/state";
 import {
   loadLedger,
@@ -379,20 +385,57 @@ async function promptSkills(pkg: string): Promise<string[]> {
   return [];
 }
 
-function installWorkCommand(ws: string, tool: string, pkg: string): void {
-  const src = join(pkg, "adapters/opencode/command/work.md");
-  if (!existsSync(src)) return;
-  let dest: string | null = null;
-  if (tool === "opencode") dest = join(ws, ".opencode", "command", "work.md");
-  else if (tool === "claude") dest = join(ws, ".claude", "commands", "work.md");
-  if (!dest) return;
-  if (existsSync(dest)) {
-    console.log(`  = /work command (${tool}) already present`);
-    return;
+const WORK_BODY_TOOLS = `Work on the spec folder: {ARGS}
+
+Steps:
+1. Call \`intern_index\` with \`specRoot="{ARGS}"\`.
+2. For every required read listed by the harness, use the \`read\` tool. Required reads MUST be read with \`read\` — \`intern_context\` does NOT satisfy Gate 1. Use \`intern_context\` only for extra, non-required slices.
+3. For each plan step in \`.intern/state/tasks/<id>/LEDGER.md\`, in order:
+   a. Call \`intern_step\` with the step id and its anchor (recorded in LEDGER.md).
+   b. Edit only files in Scope.
+   c. Call \`intern_evidence\` with claim + proof + result.
+4. When all steps pass, call \`intern_close\`.`;
+
+const WORK_BODY_CLI = `Work on the spec folder: {ARGS}
+
+This workspace uses internify. Use the \`internify\` CLI.
+
+Steps:
+1. \`internify index {ARGS}\`
+2. Read every required read with \`internify read <path>\` (this marks it done).
+3. \`internify step <id> <anchor>\`
+4. Edit only files in scope; check with \`internify gate edit <file>\` (exit 1 = blocked).
+5. \`internify evidence <step> --claim "..." --proof "..." --result pass\`
+6. When all steps pass: \`internify close\`.`;
+
+function generateCommands(ws: string, names: string[], pkg: string): string[] {
+  void pkg;
+  const written: string[] = [];
+  for (const name of names) {
+    const p = getProvider(name);
+    if (!p) {
+      console.log(`  ! unknown provider: ${name}`);
+      continue;
+    }
+    const body = (p.name === "opencode" ? WORK_BODY_TOOLS : WORK_BODY_CLI).replaceAll(
+      "{ARGS}",
+      p.argsToken,
+    );
+    const file = commandFileName(p, "work");
+    const dest = join(ws, p.commandDir, file);
+    if (existsSync(dest)) {
+      console.log(`  = ${name} (${p.commandDir}/${file} exists)`);
+      continue;
+    }
+    mkdirSync(dirname(dest), { recursive: true });
+    writeFileSync(
+      dest,
+      renderCommand(p, "work", "Start a harnessed work task from a spec folder.", body),
+    );
+    written.push(`${name}:${dest}`);
+    console.log(`  + ${name} -> ${p.commandDir}/${file}${p.hooks ? "" : " (no hooks: command only)"}`);
   }
-  mkdirSync(dirname(dest), { recursive: true });
-  cpSync(src, dest);
-  console.log(`wired /work command -> ${dest}`);
+  return written;
 }
 
 function cmdSkillsList(pkg: string): void {  const packs = listPacks(pkg);
@@ -532,12 +575,16 @@ async function cmdInit(argv: string[], f: Record<string, string>): Promise<void>
     s.hooks = hooks;
     writeFileSync(setPath, JSON.stringify(s, null, 2) + "\n");
     console.log(`wired claude hooks -> ${hook}`);
-  } else if (tool !== "none") {
-    fail(`unknown tool: ${tool}`);
+  } else if (tool === "none") {
+    // CLI only.
+  } else if (getProvider(tool)) {
+    console.log(`(${tool}: command only; no hooks — gates run via the CLI)`);
+  } else {
+    fail(`unknown tool: ${tool} (use ${["none", ...providerNames()].join("|")})`);
   }
 
-  if (tool === "opencode" || tool === "claude") {
-    installWorkCommand(ws, tool, pkg);
+  if (getProvider(tool)) {
+    generateCommands(ws, [tool], pkg);
   }
 
   let skillNames: string[] = [];
@@ -586,14 +633,14 @@ function usage(): void {
   console.log(`internify — disk-backed engineer loop for AI agents
 
 Commands:
-  init [dir] [--tool opencode|claude|none] [--knowledge .intern]
+  init [dir] [--tool opencode|claude|gemini|qwen|cursor|none] [--knowledge .intern]
                                     [--profile simple|advanced]
                                     [--target <projectDir>] [--plansDir <dir>]
                                     [--dailyDir <dir>] [--skills all|none|a,b] [--yes]
                                     scaffold knowledge + wire the provider
   skills list                       list available skill packs
-  commands install [dir] [--tool opencode|claude]
-                                    install the /work command for a provider
+  commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]
+                                    install the /work command per provider
   update [--force]                  refresh spec templates (roles/rules with --force)
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task
@@ -624,12 +671,16 @@ switch (cmd) {
     cmdUpdate(flags(rest));
     break;
   case "commands":
-    if (rest[0] === "install") {
+    if (rest[0] === "generate" || rest[0] === "install") {
       const cf = flags(rest);
       const dir = positionals(rest.slice(1))[0];
-      installWorkCommand(dir ? resolve(dir) : root, cf.tool ?? "opencode", pkgRoot());
+      const names = (cf.providers ?? cf.provider ?? "opencode")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      generateCommands(dir ? resolve(dir) : root, names, pkgRoot());
     } else {
-      fail("usage: internify commands install [dir] [--tool opencode|claude]");
+      fail("usage: internify commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]");
     }
     break;
   case "boot":

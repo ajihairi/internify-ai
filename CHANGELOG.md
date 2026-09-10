@@ -6,6 +6,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-10
+
+### Added
+
+- Provider registry (`core/lib/providers.ts`): opencode, Claude, Gemini, Qwen,
+  Cursor, with command format (md/toml/mdc), args token, and hook support.
+- Multi-provider command generator: `internify commands generate [dir]
+  [--providers …]`; `init --tool <provider>` generates the `/work` command for
+  any registered provider (opencode uses the `intern_*` tools; others use the
+  CLI). Gemini/Qwen/Cursor are command-only (no gating hooks).
+
 ## [0.4.0] - 2026-09-10
 
 ### Added
