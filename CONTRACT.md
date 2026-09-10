@@ -26,9 +26,11 @@ Four things must stay fixed: **file schemas**, **actions**, **gates**, and
 
 A spec folder `.intern/plans/<SpecName>/` is the **unit of work**.
 
-`<root>/internify.json` (optional) sets `{ "target": "…", "knowledge": "…" }` to
-separate the project root from the knowledge dir (Mode B). Defaults:
-`target == root`, `knowledge == <root>/.intern`.
+`<root>/internify.json` (optional) sets
+`{ "target": "…", "knowledge": "…", "plansDir": "…" }` to separate the project
+root from the knowledge dir, and to point at a non-standard plans folder
+(Mode B). Defaults: `target == root`, `knowledge == <root>/.intern`,
+`plansDir == <knowledge>/plans`.
 
 ## 2. File schemas
 

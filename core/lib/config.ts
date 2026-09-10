@@ -17,12 +17,15 @@ export interface Paths {
   root: string;
   knowledge: string;
   target: string;
+  /** Absolute path to the plans directory (default `<knowledge>/plans`). */
+  plans: string;
 }
 
 export function loadPaths(root: string): Paths {
   const abs = resolve(root);
   let knowledge = join(abs, KNOWLEDGE_DIR);
   let target = abs;
+  let plans = "";
   const cfg = join(abs, "internify.json");
   if (existsSync(cfg)) {
     try {
@@ -33,9 +36,13 @@ export function loadPaths(root: string): Paths {
       if (typeof c.target === "string") {
         target = isAbsolute(c.target) ? c.target : resolve(abs, c.target);
       }
+      if (typeof c.plansDir === "string") {
+        plans = isAbsolute(c.plansDir) ? c.plansDir : resolve(knowledge, c.plansDir);
+      }
     } catch {
       // ignore malformed config; fall back to defaults
     }
   }
-  return { root: abs, knowledge, target };
+  if (!plans) plans = join(knowledge, "plans");
+  return { root: abs, knowledge, target, plans };
 }

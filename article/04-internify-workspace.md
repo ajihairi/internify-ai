@@ -167,12 +167,15 @@ Config (at the workspace root, e.g. `parent/internify.json`):
 ```json
 {
   "target": "projectA",
-  "knowledge": "internify/.intern"
+  "knowledge": "internify/.intern",
+  "plansDir": "plans"
 }
 ```
 
-> Mode B is implemented in `core/lib/config.ts`: `loadPaths()` reads
-> `internify.json` and returns `{ root, knowledge, target }`.
+> `plansDir` (optional) points at a non-standard plans folder, resolved relative
+> to `knowledge` — e.g. `"superpowers/plans"`. Mode B is implemented in
+> `core/lib/config.ts`: `loadPaths()` reads `internify.json` and returns
+> `{ root, knowledge, target, plans }`.
 
 ---
 

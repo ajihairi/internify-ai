@@ -45,7 +45,7 @@ import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
 const root = process.env.INTERNIFY_ROOT
   ? resolve(process.env.INTERNIFY_ROOT)
   : process.cwd();
-const { knowledge, target } = loadPaths(root);
+const { knowledge, target, plans } = loadPaths(root);
 
 function fail(msg: string): never {
   console.error(msg);
@@ -89,7 +89,7 @@ function cmdBoot(): void {
     latestDaily: latest,
     dailySummary: extractSummary(dailyText),
     ledger,
-    specs: listSpecs(knowledge),
+    specs: listSpecs(knowledge, plans),
   });
   writeContext(knowledge, pack);
   console.log(pack);

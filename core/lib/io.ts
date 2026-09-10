@@ -113,8 +113,8 @@ export function listDaily(knowledgeRoot: string): string[] {
   return readdirSync(dir).filter((f) => /^\d{1,2}-\d{2}-\d{4}\.md$/.test(f));
 }
 
-export function listSpecs(knowledgeRoot: string): string[] {
-  const base = join(knowledgeRoot, "plans");
+export function listSpecs(knowledgeRoot: string, plansRoot?: string): string[] {
+  const base = plansRoot ?? join(knowledgeRoot, "plans");
   if (!existsSync(base)) return [];
   const out: string[] = [];
   const walk = (d: string, depth: number, base: string) => {

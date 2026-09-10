@@ -38,6 +38,7 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
   const paths = loadPaths(root);
   const knowledge = paths.knowledge;
   const target = paths.target;
+  const plans = paths.plans;
 
   return {
     "experimental.chat.system.transform": async (_input, output) => {
@@ -173,7 +174,7 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
             latestDaily: latest,
             dailySummary: extractSummary(dailyText),
             ledger,
-            specs: listSpecs(knowledge),
+            specs: listSpecs(knowledge, plans),
           });
           writeContext(knowledge, pack);
           return pack;

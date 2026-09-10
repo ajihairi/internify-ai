@@ -163,12 +163,15 @@ tool-specific hook.
 `core/lib/config.ts` loads `<root>/internify.json`:
 
 ```json
-{ "target": "../projectA", "knowledge": ".intern" }
+{ "target": "../projectA", "knowledge": ".intern", "plansDir": "plans" }
 ```
 
-- **Mode A (default):** no config → `target == root`, `knowledge == <root>/.intern`.
-- **Mode B:** config sets `target` (and optionally `knowledge`) so the tool and
-  the project can live side by side (`internify/` + `projectA/`).
+- **Mode A (default):** no config → `target == root`, `knowledge == <root>/.intern`,
+  `plansDir == <knowledge>/plans`.
+- **Mode B:** config sets `target` (and optionally `knowledge` / `plansDir`) so
+  the tool and the project can live side by side (`internify/` + `projectA/`).
+- `plansDir` is resolved relative to `knowledge`; use it when specs live in a
+  non-standard folder (e.g. `superpowers/plans`).
 
 Paths are workspace-relative; `gate edit` receives workspace-relative paths.
 

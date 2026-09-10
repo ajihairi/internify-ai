@@ -76,6 +76,13 @@ test("listSpecs walks the plans dir", () => {
   expect(listSpecs(k).some((s) => s.includes("FeatureX"))).toBe(true);
 });
 
+test("listSpecs accepts a custom plans root", () => {
+  const k = tmp();
+  mkdirSync(join(k, "intern", "plans", "FeatureY"), { recursive: true });
+  const specs = listSpecs(k, join(k, "intern", "plans"));
+  expect(specs.some((s) => s.includes("FeatureY"))).toBe(true);
+});
+
 test("writeContext writes CONTEXT.md", () => {
   const k = tmp();
   writeContext(k, "hello");
