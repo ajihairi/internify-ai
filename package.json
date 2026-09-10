@@ -1,0 +1,17 @@
+{
+  "name": "internify-ai",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A disk-backed engineer loop for AI agents: context on disk, layered gates, no hallucination.",
+  "license": "MIT",
+  "author": "Hamzhya Salsatinnov Hairy",
+  "keywords": ["ai", "agent", "harness", "context", "workflow", "opencode"],
+  "bin": {
+    "internify": "core/cli.ts"
+  },
+  "scripts": {
+    "cli": "bun core/cli.ts",
+    "test": "bun test core/lib",
+    "smoke": "bun core/smoke.ts"
+  }
+}
