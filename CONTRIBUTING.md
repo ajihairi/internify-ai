@@ -29,6 +29,17 @@ bun core/smoke.ts
 
 Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `ci:`).
 
+## Releasing
+
+Bump `version` in `package.json`, update `CHANGELOG.md`, then push a tag:
+
+```bash
+git tag v0.7.0 && git push origin v0.7.0
+```
+
+`.github/workflows/publish.yml` runs the tests and publishes to npm. It needs a
+repo secret `NPM_TOKEN` (a granular npm token with "bypass 2FA").
+
 ## Authorship
 
 The **human** authors commits. Agents may write code and open PRs, but do not add

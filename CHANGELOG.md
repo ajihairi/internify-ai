@@ -6,6 +6,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-10
+
+### Added
+
+- `internify doctor` — environment + task health checks (Bun, paths, active
+  ledger/INDEX).
+- Pipeline commands: `/internify.review`, `/internify.daily`,
+  `/internify.monthly`, `/internify.help` (all providers).
+- `init` interactive wizard: pick the AI tool and knowledge profile.
+- CLI tests (`core/cli.test.ts`) + `publish.yml` (npm publish on `v*` tags via
+  `NPM_TOKEN`).
+
 ## [0.6.0] - 2026-09-10
 
 ### Changed

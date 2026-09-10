@@ -28,6 +28,7 @@ import { buildIndex } from "./lib/index-builder";
 import { canEdit, canStep, canClose, canBash } from "./lib/gates";
 import { sliceFunction, sliceSection } from "./lib/context";
 import { loadPaths } from "./lib/config";
+import { doctorChecks } from "./lib/doctor";
 import { parseStatus } from "./lib/status";
 import {
   commandName,
@@ -417,6 +418,24 @@ const STATUS_BODY_TOOLS =
   "Show the current task: call `intern_status` and summarize phase, active step, and pending reads.";
 const STATUS_BODY_CLI = "Show the current task: run `internify status` and summarize it.";
 
+const REVIEW_BODY_TOOLS =
+  "Review the active task: call `intern_status`, read the active spec, then summarize what's done, what's pending, and any risks or spec/status drift. Do not edit files.";
+const REVIEW_BODY_CLI =
+  "Review the active task: run `internify status`, read the active spec, then summarize done/pending/risks. Do not edit files.";
+
+const DAILY_BODY_TOOLS =
+  "Summarize today's work (active task + recent evidence) and append it to the daily log in the knowledge `daily/` directory.";
+const DAILY_BODY_CLI =
+  "Summarize today's work and append it to the daily log file in the knowledge `daily/` directory.";
+
+const MONTHLY_BODY_TOOLS =
+  "Build a monthly timesheet: read every daily log for the target month in the knowledge `daily/` directory, and write a summary to `monthly/<YYYY-MM>.md` with one line per day (`<date> — highlights`). Ask which month if unclear.";
+const MONTHLY_BODY_CLI =
+  "Build a monthly timesheet: read the knowledge `daily/*.md` for the month and write `monthly/<YYYY-MM>.md` with one line per day (`<date> — highlights`). If no month is given, use the current one.";
+
+const HELP_BODY =
+  "List the internify chat commands (`internify.work`, `internify.boot`, `internify.status`, `internify.review`, `internify.daily`, `internify.monthly`, `internify.help`) and the CLI (`internify --help`). Briefly explain when to use each.";
+
 interface CmdDef {
   name: string;
   description: string;
@@ -442,6 +461,30 @@ const COMMANDS: CmdDef[] = [
     description: "Show the current task phase and pending reads.",
     tools: STATUS_BODY_TOOLS,
     cli: STATUS_BODY_CLI,
+  },
+  {
+    name: "review",
+    description: "Review the active task (done / pending / risks).",
+    tools: REVIEW_BODY_TOOLS,
+    cli: REVIEW_BODY_CLI,
+  },
+  {
+    name: "daily",
+    description: "Summarize today's work into the daily log.",
+    tools: DAILY_BODY_TOOLS,
+    cli: DAILY_BODY_CLI,
+  },
+  {
+    name: "monthly",
+    description: "Build a monthly timesheet from the daily logs.",
+    tools: MONTHLY_BODY_TOOLS,
+    cli: MONTHLY_BODY_CLI,
+  },
+  {
+    name: "help",
+    description: "List internify commands and how to use them.",
+    tools: HELP_BODY,
+    cli: HELP_BODY,
   },
 ];
 
@@ -474,6 +517,21 @@ function generateCommands(ws: string, names: string[], pkg: string): string[] {
   return written;
 }
 
+function cmdDoctor(): void {
+  const checks = doctorChecks(loadPaths(root));
+  let errors = 0;
+  for (const c of checks) {
+    const mark = c.level === "ok" ? "OK " : c.level === "warn" ? "WARN" : "ERR";
+    console.log(`${mark}  ${c.name}: ${c.detail}`);
+    if (c.level === "error") errors++;
+  }
+  if (errors > 0) {
+    console.error(`\n${errors} problem(s) found.`);
+    process.exit(1);
+  }
+  console.log("\nAll good.");
+}
+
 function cmdSkillsList(pkg: string): void {  const packs = listPacks(pkg);
   if (packs.length === 0) {
     console.log("no skill packs found");
@@ -497,12 +555,47 @@ function positionals(argv: string[]): string[] {
   return out;
 }
 
+async function promptSelect(
+  question: string,
+  options: string[],
+  def: string,
+): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const list = options.map((o, i) => `${i + 1}.${o}`).join("  ");
+    const ans = (
+      await rl.question(`${question} [${list}] (default ${def}): `)
+    )
+      .trim()
+      .toLowerCase();
+    const n = Number(ans);
+    if (!Number.isNaN(n) && n >= 1 && n <= options.length) return options[n - 1];
+    if (options.includes(ans)) return ans;
+    return def;
+  } finally {
+    rl.close();
+  }
+}
+
 async function cmdInit(argv: string[], f: Record<string, string>): Promise<void> {
   const targetArg = positionals(argv)[0];
   const ws = targetArg ? resolve(targetArg) : root;
-  const tool = f.tool ?? "opencode";
+  let tool = f.tool;
+  let profile = f.profile;
+  const interactive = !!process.stdin.isTTY && !f.yes;
+  if (interactive && !tool) {
+    tool = await promptSelect(
+      "AI tool",
+      ["opencode", "claude", "gemini", "qwen", "cursor", "none"],
+      "opencode",
+    );
+  }
+  if (interactive && !profile) {
+    profile = await promptSelect("Knowledge profile", ["simple", "advanced"], "simple");
+  }
+  tool = tool ?? "opencode";
+  profile = profile ?? "simple";
   const know = f.knowledge ?? ".intern";
-  const profile = f.profile ?? "simple";
   const pkg = pkgRoot();
   const template = join(pkg, "template");
 
@@ -675,6 +768,7 @@ Commands:
                                     [--dailyDir <dir>] [--skills all|none|a,b] [--yes]
                                     scaffold knowledge + wire the provider
   skills list                       list available skill packs
+  doctor                            check environment + task health
   commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]
                                     install the internify.* commands per provider
   update [--force]                  refresh spec templates (roles/rules with --force)
@@ -702,6 +796,9 @@ switch (cmd) {
   case "skills":
     if (rest[0] === "list") cmdSkillsList(pkgRoot());
     else fail("usage: internify skills list");
+    break;
+  case "doctor":
+    cmdDoctor();
     break;
   case "update":
     cmdUpdate(flags(rest));

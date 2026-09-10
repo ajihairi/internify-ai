@@ -20,6 +20,10 @@ There are three kinds of "command" in internify — don't mix them up:
 | `/internify.work <spec-folder>` | Start/resume a task — runs the whole loop |
 | `/internify.boot` | Collect/refresh the session context from disk |
 | `/internify.status` | Show the current phase, active step, and pending reads |
+| `/internify.review` | Review the active task: done / pending / risks |
+| `/internify.daily` | Summarize today's work into the daily log |
+| `/internify.monthly` | Build a monthly timesheet from the daily logs |
+| `/internify.help` | List the internify commands |
 
 They are generated per provider by `internify init`, or
 `internify commands generate`:
@@ -72,6 +76,7 @@ Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 | `internify gate edit <file>` | Exit 1 if the file is blocked |
 | `internify gate bash "<cmd>"` | Exit 1 if a shell write is blocked |
 | `internify skills list` | List available skill packs |
+| `internify doctor` | Check environment + task health |
 | `internify commands generate [dir] [--providers …]` | Generate the slash commands |
 | `internify update [--force]` | Refresh spec templates |
 

@@ -19,7 +19,7 @@ jobs:
         working-directory: adapters/opencode
 
       - name: Unit + adapter tests
-        run: bun test core/lib adapters/opencode
+        run: bun test core adapters/opencode
 
       - name: Typecheck
         run: >

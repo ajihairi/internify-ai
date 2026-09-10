@@ -9,6 +9,7 @@ to `<root>/.intern`; override via `<root>/internify.json`.
 |---------|-------------|
 | `internify init [dir] [--tool opencode\|claude\|none] [--knowledge <name>] [--profile simple\|advanced] [--target <dir>] [--plansDir <dir>] [--dailyDir <dir>] [--skills all\|none\|a,b] [--yes]` | Scaffold knowledge + wire the provider (+ optional skill packs) |
 | `internify skills list` | List available skill packs |
+| `internify doctor` | Check environment + task health |
 | `internify commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]` | Generate the `internify.*` commands per provider |
 | `internify update [--force]` | Refresh spec templates (`--force` also refreshes `rules.md` + `roles/`) |
 | `internify boot` | Collect session context → `state/CONTEXT.md` |
