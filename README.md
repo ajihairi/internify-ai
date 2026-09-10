@@ -62,26 +62,17 @@ turn. New session or compaction → no loss of grounding.
 
 Set up internify in an empty workspace, with your project cloned next to it.
 
-![Setting up internify in an empty workspace](./docs/assets/from-zero.svg)
+![Setting up internify in an empty workspace](./docs/assets/from-zero.gif)
 
 Then every work session runs the same enforced loop:
 
-![The enforced loop: read → step → edit → evidence → close](./docs/assets/session.svg)
+![The enforced loop: read → step → edit → evidence → close](./docs/assets/session.gif)
 
-Inside opencode it looks like this:
+Inside opencode, the agent drives the same loop through `/work`:
 
-```text
-> /work .intern/plans/FeatureX
+![opencode session running /work](./docs/assets/opencode-session.png)
 
-INDEX built. task=featurex reads=4
-→ reading required reads…
-→ Step S1 active (anchor A1).
-→ OK: src/Feature.swift is editable.
-→ Evidence recorded for S1 (pass).
-→ Task featurex closed. Daily: .intern/daily/10-09-2026.md
-```
-
-(The images are illustrative transcripts; the underlying output is real.)
+(The clips are illustrative transcripts; the underlying output is real.)
 
 ## Repository layout
 
