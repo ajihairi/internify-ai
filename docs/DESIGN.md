@@ -185,7 +185,8 @@ Implemented:
   step and, when the index knows it, a status of `ok`.
 - INDEX written as human-readable tables + a JSON block.
 - Mode A / Mode B (target ≠ knowledge).
-- opencode adapter + tool-agnostic CLI.
+- opencode adapter + a Claude Code `PreToolUse` hook + a tool-agnostic CLI.
+- `internify init` scaffolds `.intern/` + `AGENTS.md` and wires the provider.
 - Tests: `core/lib` units + `adapters/opencode` smoke + `core/smoke.ts`.
 
 Remaining (smaller) gaps:

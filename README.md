@@ -104,35 +104,53 @@ internify-ai/
 
 ## Quick start
 
-### From an empty workspace (opencode)
+### Install the CLI
+
+```bash
+# from npm (once published)
+npm i -g internify-ai        # or: bun add -g internify-ai
+
+# or run it straight from GitHub — no clone needed
+bunx github:ajihairi/internify-ai --help
+```
+
+### Set up a workspace
 
 ```bash
 mkdir my-workspace && cd my-workspace
 
-# 1. Clone your project and the tool, side by side
+# 1. clone your project
 git clone git@github.com:you/my-project.git
-git clone git@github.com:ajihairi/internify-ai.git
 
-# 2. Scaffold the knowledge dir from the template
-cp -r internify-ai/template/.intern   .intern
-cp    internify-ai/template/AGENTS.md AGENTS.md
-
-# 3. Install the adapter's deps
-(cd internify-ai/adapters/opencode && bun install)
-
-# 4. Tell opencode to load the adapter plugin
-cat > opencode.json <<'JSON'
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["./internify-ai/adapters/opencode/plugins/intern-harness.ts"]
-}
-JSON
-
-# 5. Restart opencode, then start a session
+# 2. install + wire internify (scaffolds .intern/ + AGENTS.md)
+internify init --tool opencode      # or: --tool claude | --tool none
 ```
 
-The plugin resolves `../../../core/lib` relative to its own file, so keep
-`internify-ai` where you cloned it (or adjust the plugin path).
+`init` never overwrites existing files. It creates `.intern/` + `AGENTS.md` and
+wires the provider:
+
+| `--tool` | What it does |
+|----------|--------------|
+| `opencode` (default) | adds the adapter plugin to `opencode.json` |
+| `claude` | adds a `PreToolUse` hook to `.claude/settings.json` |
+| `none` | CLI only (no provider wiring) |
+
+Options: `internify init [dir] [--knowledge <name>] [--tool <name>]`.
+
+Then restart the AI tool and start a session:
+
+```text
+/work .intern/plans/<SpecName>      # opencode
+internify boot                      # any tool, via the CLI
+```
+
+### Providers
+
+| Provider | Integration | Enforces |
+|----------|-------------|----------|
+| opencode | plugin (`tool.execute.before/after`) + skill + `/work` | edit / write / bash |
+| Claude Code | `PreToolUse` hook → `adapters/claude/hook.ts` | Edit / Write / MultiEdit / Bash |
+| any (CLI) | `internify gate edit <file>` / `internify gate bash "<cmd>"` | via git hooks or wrappers |
 
 ### Optional: project beside the tool (Mode B)
 

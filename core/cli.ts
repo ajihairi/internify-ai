@@ -19,8 +19,9 @@
  * <root>/.intern; override both root and target via <root>/internify.json.
  */
 
-import { readFileSync, existsSync } from "node:fs";
-import { join, resolve, relative, isAbsolute } from "node:path";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, cpSync } from "node:fs";
+import { join, resolve, relative, isAbsolute, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { buildIndex } from "./lib/index-builder";
 import { canEdit, canStep, canClose, canBash } from "./lib/gates";
 import { sliceFunction, sliceSection } from "./lib/context";
@@ -260,10 +261,92 @@ function cmdGateBash(command: string): void {
   console.log("OK: bash command allowed.");
 }
 
+function pkgRoot(): string {
+  return dirname(dirname(fileURLToPath(import.meta.url)));
+}
+
+function cmdInit(argv: string[], f: Record<string, string>): void {
+  const targetArg = argv.find((a) => !a.startsWith("--"));
+  const ws = targetArg ? resolve(targetArg) : root;
+  const tool = f.tool ?? "opencode";
+  const know = f.knowledge ?? ".intern";
+  const pkg = pkgRoot();
+  const template = join(pkg, "template");
+
+  if (!existsSync(template)) {
+    fail(`template not found at ${template} (run init from the internify package)`);
+  }
+
+  const kdest = join(ws, know);
+  if (existsSync(kdest)) {
+    console.log(`${know}/ already exists — left untouched`);
+  } else {
+    cpSync(join(template, ".intern"), kdest, { recursive: true });
+    console.log(`scaffolded ${know}/`);
+  }
+
+  const agentsDest = join(ws, "AGENTS.md");
+  if (!existsSync(agentsDest)) {
+    cpSync(join(template, "AGENTS.md"), agentsDest);
+    console.log("wrote AGENTS.md");
+  } else {
+    console.log("AGENTS.md already exists — left untouched");
+  }
+
+  if (tool === "opencode") {
+    const plugin = join(pkg, "adapters/opencode/plugins/intern-harness.ts");
+    const cfgPath = join(ws, "opencode.json");
+    let cfg: Record<string, unknown> = { $schema: "https://opencode.ai/config.json" };
+    if (existsSync(cfgPath)) {
+      try {
+        cfg = JSON.parse(readFileSync(cfgPath, "utf8")) as Record<string, unknown>;
+      } catch {
+        /* keep default */
+      }
+    }
+    const plugins = Array.isArray(cfg.plugin) ? (cfg.plugin as string[]) : [];
+    if (!plugins.includes(plugin)) plugins.push(plugin);
+    cfg.plugin = plugins;
+    writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + "\n");
+    console.log(`wired opencode plugin -> ${plugin}`);
+  } else if (tool === "claude") {
+    const hook = join(pkg, "adapters/claude/hook.ts");
+    const dir = join(ws, ".claude");
+    mkdirSync(dir, { recursive: true });
+    const setPath = join(dir, "settings.json");
+    let s: Record<string, unknown> = {};
+    if (existsSync(setPath)) {
+      try {
+        s = JSON.parse(readFileSync(setPath, "utf8")) as Record<string, unknown>;
+      } catch {
+        /* keep default */
+      }
+    }
+    const hooks = (s.hooks as Record<string, unknown>) ?? {};
+    const pre = Array.isArray(hooks.PreToolUse) ? (hooks.PreToolUse as unknown[]) : [];
+    pre.push({
+      matcher: "Edit|Write|MultiEdit",
+      hooks: [{ type: "command", command: `bun "${hook}"` }],
+    });
+    hooks.PreToolUse = pre;
+    s.hooks = hooks;
+    writeFileSync(setPath, JSON.stringify(s, null, 2) + "\n");
+    console.log(`wired claude hook -> ${hook}`);
+  } else if (tool !== "none") {
+    fail(`unknown tool: ${tool}`);
+  }
+
+  console.log(
+    `\nDone. Next:\n  1. restart the AI tool (config is not hot-reloaded)\n  2. bootstrap:  internify boot\n  3. start work: /work ${know}/plans/<SpecName>   (or the CLI)`,
+  );
+}
+
 function usage(): void {
   console.log(`internify — disk-backed engineer loop for AI agents
 
 Commands:
+  init [dir] [--tool opencode|claude|none] [--knowledge .intern]
+                                    scaffold knowledge + wire the provider
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task
   read <path>                       print a file and mark a required read as done
@@ -282,6 +365,9 @@ Env: INTERNIFY_ROOT (default: cwd). Config: <root>/internify.json
 
 const [cmd, ...rest] = process.argv.slice(2);
 switch (cmd) {
+  case "init":
+    cmdInit(rest, flags(rest));
+    break;
   case "boot":
     cmdBoot();
     break;

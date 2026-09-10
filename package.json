@@ -9,6 +9,18 @@
   "bin": {
     "internify": "core/cli.ts"
   },
+  "files": [
+    "core/cli.ts",
+    "core/lib",
+    "adapters/opencode/plugins",
+    "adapters/opencode/skills",
+    "adapters/opencode/command",
+    "adapters/claude",
+    "template",
+    "CONTRACT.md",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "cli": "bun core/cli.ts",
     "test": "bun test core/lib adapters/opencode",
