@@ -63,7 +63,7 @@ updated: 2026-09-10
 | `review` | propose changes, needs approval |
 | `fixed` | treat as source of truth; do not rewrite |
 
-Status is **enforced** by internify (see [Contract](../contract.md) §4b):
+Status is **enforced** by internify (see [Contract](contract.md) §4b):
 
 | Status | Required read? | Editable? |
 |--------|----------------|-----------|
