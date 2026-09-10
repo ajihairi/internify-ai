@@ -322,6 +322,7 @@ can use it:
 
 ```bash
 bun core/cli.ts boot
+bun core/cli.ts spec new FeatureX           # scaffold plans/FeatureX from the template
 bun core/cli.ts index .intern/plans/FeatureX
 bun core/cli.ts read src/Feature.swift     # print + mark a required read
 bun core/cli.ts step S1 slice-1
@@ -347,6 +348,11 @@ One feature = one folder, always containing three files:
 ```
 
 A spec folder is the unit of work. Start it with `/internify.work <spec-folder>`.
+
+Scaffold a new one with `internify spec new <Name>` (CLI) or `/internify.spec <Name>`
+(chat). Both copy the template and fill in the name, date, and owner role;
+`/internify.spec` then interviews you and drafts the three files. Start it with
+`/internify.work <spec-folder>`.
 
 ## Tools
 

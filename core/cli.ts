@@ -60,6 +60,7 @@ import {
   writeContext,
 } from "./lib/io";
 import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
+import { findSpecTemplate, newSpec } from "./lib/spec";
 
 const root = process.env.INTERNIFY_ROOT
   ? resolve(process.env.INTERNIFY_ROOT)
@@ -504,8 +505,26 @@ const MONTHLY_BODY_TOOLS =
 const MONTHLY_BODY_CLI =
   "Build a monthly timesheet: read the knowledge `daily/*.md` for the month and write `monthly/<YYYY-MM>.md` with one line per day (`<date> — highlights`). If no month is given, use the current one.";
 
+const SPEC_BODY_TOOLS = `Create a new spec folder and author its content: {ARGS}
+
+Steps:
+1. Scaffold it in the terminal: \`internify spec new {ARGS}\`.
+2. Interview the user ONE question at a time: goal, requirements, behavior, files to reference, acceptance criteria.
+3. Write \`SPECmd.md\` (Goal, Requirements, Behavior, Existing code references, Out of scope, Acceptance criteria); keep \`status: draft\`.
+4. Write \`Plan.md\` (Files table, Steps, Verification).
+5. Write \`Task.md\` (task table per role).
+6. Confirm with the user, then start work with \`/internify.work {ARGS}\`.`;
+
+const SPEC_BODY_CLI = `Create a new spec folder and author its content: {ARGS}
+
+Steps:
+1. \`internify spec new {ARGS}\`
+2. Ask the user (one question at a time): goal, requirements, behavior, files, acceptance criteria.
+3. Fill \`SPECmd.md\`, \`Plan.md\`, \`Task.md\` (keep \`status: draft\`).
+4. Confirm, then \`internify index {ARGS}\` to start.`;
+
 const HELP_BODY =
-  "List the internify chat commands (`internify.work`, `internify.boot`, `internify.status`, `internify.review`, `internify.daily`, `internify.monthly`, `internify.help`) and the CLI (`internify --help`). Briefly explain when to use each.";
+  "List the internify chat commands (`internify.work`, `internify.spec`, `internify.boot`, `internify.status`, `internify.review`, `internify.daily`, `internify.monthly`, `internify.help`) and the CLI (`internify --help`). Briefly explain when to use each.";
 
 interface CmdDef {
   name: string;
@@ -520,6 +539,12 @@ const COMMANDS: CmdDef[] = [
     description: "Start a harnessed work task from a spec folder.",
     tools: WORK_BODY_TOOLS,
     cli: WORK_BODY_CLI,
+  },
+  {
+    name: "spec",
+    description: "Scaffold a new spec folder, then author SPECmd/Plan/Task.",
+    tools: SPEC_BODY_TOOLS,
+    cli: SPEC_BODY_CLI,
   },
   {
     name: "boot",
@@ -830,6 +855,41 @@ function cmdUpdate(f: Record<string, string>): void {
   }
 }
 
+function specTemplatesDir(): string | undefined {
+  const advanced = join(knowledge, "05-templates");
+  return existsSync(advanced) ? advanced : undefined;
+}
+
+function cmdSpecNew(name: string, f: Record<string, string>): void {
+  if (!name) fail("usage: internify spec new <Name> [--role <role>]");
+  const template = findSpecTemplate(plans, specTemplatesDir());
+  if (!template) {
+    fail("spec template not found. Run: internify update (or internify init)");
+  }
+  try {
+    const res = newSpec({ template, plansDir: plans, name, role: f.role });
+    const rel = relative(root, res.dir).split("\\").join("/");
+    console.log(`created spec ${res.name}`);
+    for (const file of res.files) {
+      console.log(`  + ${relative(root, file).split("\\").join("/")}`);
+    }
+    console.log(
+      `\nNext:\n  1. fill the three files (status: draft)\n  2. start work: /internify.work ${rel}`,
+    );
+  } catch (e) {
+    fail((e as Error).message);
+  }
+}
+
+function cmdSpecList(): void {
+  const specs = listSpecs(knowledge, plans);
+  if (specs.length === 0) {
+    console.log("no specs yet. Create one: internify spec new <Name>");
+    return;
+  }
+  for (const s of specs) console.log(s);
+}
+
 function usage(): void {
   console.log(`internify — disk-backed engineer loop for AI agents
 
@@ -846,6 +906,8 @@ Commands:
   commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]
                                     install the internify.* commands per provider
   update [--force]                  refresh spec templates (roles/rules with --force)
+  spec new <Name> [--role <role>]   scaffold a new spec folder from the template
+  spec list                         list spec folders under the plans dir
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task
   read <path>                       print a file and mark a required read as done
@@ -893,6 +955,11 @@ switch (cmd) {
     } else {
       fail("usage: internify commands generate [dir] [--providers opencode,claude,gemini,qwen,cursor]");
     }
+    break;
+  case "spec":
+    if (rest[0] === "new") cmdSpecNew(rest[1], flags(rest));
+    else if (rest[0] === "list") cmdSpecList();
+    else fail("usage: internify spec new <Name> [--role <role>] | spec list");
     break;
   case "boot":
     cmdBoot();

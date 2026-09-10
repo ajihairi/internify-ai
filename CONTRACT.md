@@ -88,6 +88,7 @@ proof: <how it was verified>
 | Action | Meaning |
 |--------|---------|
 | `boot` | Collect session context → write `CONTEXT.md` |
+| `spec new <Name>` | Scaffold a spec folder from the template (placeholders filled) |
 | `index <spec-folder>` | Scan spec, build `INDEX.md`, start/resume task |
 | `context <path> <selector>` | Return a minimal slice |
 | `step <id> <anchor>` | Declare active step + anchor |

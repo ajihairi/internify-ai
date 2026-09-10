@@ -16,6 +16,15 @@ execute.
 3. Read the active spec: `.intern/plans/<SpecName>/{SPECmd,Plan,Task}.md`.
 4. Check the latest daily log in `.intern/daily/`.
 
+## Creating a spec
+
+```text
+/internify.spec <SpecName>
+```
+
+Scaffolds `.intern/plans/<SpecName>/` and drafts `SPECmd.md`, `Plan.md`,
+`Task.md`.
+
 ## Starting work
 
 ```text

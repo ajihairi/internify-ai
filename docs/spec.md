@@ -12,6 +12,17 @@ One feature = one spec folder. It **must** contain three files:
 The folder name is the spec name (e.g. `FeatureX`). A ready-to-copy template
 lives at `plans/_template/SpecName/` (installed by `internify init`).
 
+Scaffold one instead of copying by hand:
+
+```bash
+internify spec new FeatureX            # -> plans/FeatureX/{SPECmd,Plan,Task}.md
+internify spec new Module/FeatureX     # nested
+```
+
+In chat, use `/internify.spec <Name>`: it scaffolds the folder, interviews you,
+and drafts the three files. Both fill in `<SpecName>`, `<role>`, and
+`<YYYY-MM-DD>`.
+
 ## What the harness does with a spec
 
 - `internify index <spec-folder>` scans `SPECmd.md` / `Plan.md` / `Task.md`,

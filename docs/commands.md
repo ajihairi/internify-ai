@@ -18,6 +18,7 @@ There are three kinds of "command" in internify — don't mix them up:
 | Command | What it does |
 |---------|--------------|
 | `/internify.work <spec-folder>` | Start/resume a task — runs the whole loop |
+| `/internify.spec <Name>` | Scaffold a new spec, then author its SPECmd/Plan/Task |
 | `/internify.boot` | Collect/refresh the session context from disk |
 | `/internify.status` | Show the current phase, active step, and pending reads |
 | `/internify.review` | Review the active task: done / pending / risks |
@@ -64,6 +65,8 @@ Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 | Command | What it does |
 |---------|--------------|
 | `internify init [dir] [--tool …] [--profile …] [--skills …]` | Scaffold + wire a provider |
+| `internify spec new <Name> [--role <role>]` | Scaffold a spec folder from the template |
+| `internify spec list` | List spec folders under the plans directory |
 | `internify boot` | Collect session context → `state/CONTEXT.md` |
 | `internify index <spec-folder>` | Build `INDEX.md`, start/resume a task |
 | `internify read <path>` | Print a file and mark a required read done |
