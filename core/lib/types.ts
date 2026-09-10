@@ -14,6 +14,10 @@ export interface RequiredRead {
   kind: "spec" | "code";
   hash: string;
   read: boolean;
+  /** Document status from frontmatter, if any. */
+  status?: "draft" | "review" | "fixed";
+  /** Whether this read must be satisfied before editing. Defaults to true. */
+  required?: boolean;
 }
 
 export interface Anchor {

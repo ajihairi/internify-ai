@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-10
+
+### Added
+
+- **Status-aware gates**: a document's `status: draft|review|fixed` frontmatter
+  now drives behavior — `draft`/`review` are optional reads, `fixed` documents
+  are required reads and read-only. New pure module `core/lib/status.ts`.
+- Scope now includes spec documents (so drafts are editable) while `fixed` ones
+  are blocked.
+- Spec templates carry `status` frontmatter.
+
+## [0.2.0] - 2026-09-10
+
 ### Added
 
 - Skill packs: bundled `packs/status` + resolution of external packs
@@ -14,7 +27,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `--yes` to skip prompts.
 - `internify skills list`.
 - Repo hygiene: `AGENTS.md`, per-agent shims, `CONTRIBUTING.md`,
-  `CODE_OF_CONDUCT.md`, `CHANGELOG.md`.
+  `CODE_OF_CONDUCT.md`, `CHANGELOG.md`, logo assets.
 - Docs site (Material for MkDocs) with `structure` and `skills` pages.
 
 ### Changed

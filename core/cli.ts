@@ -28,6 +28,7 @@ import { buildIndex } from "./lib/index-builder";
 import { canEdit, canStep, canClose, canBash } from "./lib/gates";
 import { sliceFunction, sliceSection } from "./lib/context";
 import { loadPaths } from "./lib/config";
+import { parseStatus } from "./lib/status";
 import { slug, emptyLedger, nowIso } from "./lib/state";
 import {
   loadLedger,
@@ -107,7 +108,7 @@ function cmdIndex(specArg: string): void {
   saveIndex(knowledge, taskId, idx);
   const ledger = loadLedger(knowledge, taskId) ?? emptyLedger(taskId, rel);
   ledger.requiredReads = idx.requiredReads.map((r) => ({ ...r, read: false }));
-  ledger.scope = idx.requiredReads.filter((r) => r.kind === "code").map((r) => r.path);
+  ledger.scope = idx.requiredReads.map((r) => r.path);
   if (ledger.scope.length === 0) ledger.scope = [rel];
   if (ledger.steps.length === 0) {
     ledger.steps = idx.slices.slice(0, 5).map((s, i) => ({
@@ -243,7 +244,14 @@ function cmdGateEdit(file: string): void {
   const active = activeLedger();
   const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
-  const d = canEdit(root, ledger, file);
+  const abs = isAbsolute(file) ? file : join(root, file);
+  let targetStatus: string | undefined;
+  try {
+    if (existsSync(abs)) targetStatus = parseStatus(readFileSync(abs, "utf8")) ?? undefined;
+  } catch {
+    /* ignore */
+  }
+  const d = canEdit(root, ledger, file, { targetStatus });
   if (!d.ok) fail(d.reason ?? "blocked");
   if (ledger.forceAllow) {
     ledger.forceAllow = false;

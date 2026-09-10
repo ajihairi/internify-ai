@@ -26,7 +26,17 @@ function inScope(root: string, filePath: string, scope: string[]): boolean {
   });
 }
 
-export function canEdit(repoRoot: string, ledger: Ledger, filePath: string): Decision {
+export interface EditOptions {
+  /** Status of the target document (from its frontmatter), if known. */
+  targetStatus?: string;
+}
+
+export function canEdit(
+  repoRoot: string,
+  ledger: Ledger,
+  filePath: string,
+  opts: EditOptions = {},
+): Decision {
   if (ledger.forceAllow) return { ok: true };
   if (ledger.phase !== "planned" && ledger.phase !== "acting") {
     return {
@@ -34,7 +44,7 @@ export function canEdit(repoRoot: string, ledger: Ledger, filePath: string): Dec
       reason: `BLOCKED: cannot edit in phase "${ledger.phase}". Declare a step via intern_step.`,
     };
   }
-  const unread = ledger.requiredReads.filter((r) => !r.read);
+  const unread = ledger.requiredReads.filter((r) => r.required !== false && !r.read);
   if (unread.length > 0) {
     return {
       ok: false,
@@ -46,6 +56,12 @@ export function canEdit(repoRoot: string, ledger: Ledger, filePath: string): Dec
   }
   if (!inScope(repoRoot, filePath, ledger.scope)) {
     return { ok: false, reason: `BLOCKED: file outside task scope: ${filePath}` };
+  }
+  if (opts.targetStatus === "fixed") {
+    return {
+      ok: false,
+      reason: `BLOCKED: ${filePath} is a fixed document (source of truth). Change its status or use intern_override.`,
+    };
   }
   return { ok: true };
 }
@@ -60,7 +76,7 @@ export function canStep(
   anchor: string,
   anchors: Anchor[] = [],
 ): Decision {
-  if (ledger.requiredReads.some((r) => !r.read)) {
+  if (ledger.requiredReads.some((r) => r.required !== false && !r.read)) {
     return { ok: false, reason: "BLOCKED: finish the required reads first." };
   }
   if (!anchor) return { ok: false, reason: "BLOCKED: anchor is required." };

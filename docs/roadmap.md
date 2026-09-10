@@ -9,15 +9,14 @@
 - opencode adapter (plugin + skill + `/work`) and a Claude Code `PreToolUse` hook.
 - Tool-agnostic CLI; `internify init` (scaffold + provider wiring).
 - **Skill packs**: bundled + external resolution, `init --skills`, `skills list`.
+- **Status-aware gates**: `status: draft|review|fixed` in frontmatter → optional
+  reads for drafts, `fixed` docs are read-only.
 - Docs site (Material for MkDocs) on GitHub Pages.
 - Published: [`internify-ai`](https://www.npmjs.com/package/internify-ai) on npm.
 - Tests: core units + adapter smoke; CI workflow.
 
 ## Next
 
-- **Status-aware gates**: read `status: draft|review|fixed` in specs → only
-  `fixed` docs become required reads; `draft` is free to edit.
-  See [Structure profiles](structure.md).
 - **Advanced profile**: `internify init --profile advanced` scaffolds PARA
   (`00-inbox…06-daily`) and writes `plansDir`.
 - **More providers**: Gemini CLI, Cursor; a richer Claude adapter

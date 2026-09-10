@@ -3,6 +3,7 @@ import { tool } from "@opencode-ai/plugin";
 import { buildIndex } from "../../../core/lib/index-builder";
 import { canEdit, canStep, canClose, canBash } from "../../../core/lib/gates";
 import { sliceFunction, sliceSection } from "../../../core/lib/context";
+import { parseStatus } from "../../../core/lib/status";
 import { loadPaths } from "../../../core/lib/config";
 import { slug, emptyLedger, nowIso } from "../../../core/lib/state";
 import {
@@ -111,7 +112,14 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
       const filePath: string | undefined =
         output.args?.filePath ?? output.args?.path;
       if (!filePath) return;
-      const d = canEdit(root, ledger, filePath);
+      let targetStatus: string | undefined;
+      try {
+        const abs = isAbsolute(filePath) ? filePath : join(root, filePath);
+        if (existsSync(abs)) targetStatus = parseStatus(readFileSync(abs, "utf8")) ?? undefined;
+      } catch {
+        /* ignore */
+      }
+      const d = canEdit(root, ledger, filePath, { targetStatus });
       if (!d.ok) throw new Error(d.reason);
       let dirty = false;
       if (ledger.forceAllow) {
@@ -197,9 +205,7 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           saveIndex(knowledge, taskId, idx);
           const ledger = loadLedger(knowledge, taskId) ?? emptyLedger(taskId, specRel);
           ledger.requiredReads = idx.requiredReads.map((r) => ({ ...r, read: false }));
-          ledger.scope = idx.requiredReads
-            .filter((r) => r.kind === "code")
-            .map((r) => r.path);
+          ledger.scope = idx.requiredReads.map((r) => r.path);
           if (ledger.scope.length === 0) ledger.scope = [specRel];
           if (ledger.steps.length === 0) {
             ledger.steps = idx.slices.slice(0, 5).map((s, i) => ({

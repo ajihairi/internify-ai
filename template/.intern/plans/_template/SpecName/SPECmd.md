@@ -1,3 +1,9 @@
+---
+status: draft        # draft | review | fixed
+owner: <role>
+updated: <YYYY-MM-DD>
+---
+
 # SPEC — <SpecName>
 
 > **WHAT.** Requirements and behavior. No implementation details.

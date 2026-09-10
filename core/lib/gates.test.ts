@@ -123,3 +123,38 @@ test("canBash allows non-writing commands unconditionally", () => {
   expect(canBash("/repo", ledger({ phase: "orient", scope: [] }), "ls -la").ok).toBe(true);
 });
 
+test("canEdit blocks rewriting a fixed document", () => {
+  const r = canEdit("/repo", ledger({ phase: "acting" }), "src/A.swift", {
+    targetStatus: "fixed",
+  });
+  expect(r.ok).toBe(false);
+  expect(r.reason).toContain("fixed");
+});
+
+test("canEdit ignores unread optional (draft) reads", () => {
+  const l = ledger({
+    phase: "acting",
+    requiredReads: [
+      {
+        key: "x",
+        path: "p/draft.md",
+        kind: "spec",
+        hash: "h",
+        read: false,
+        status: "draft",
+        required: false,
+      },
+    ],
+  });
+  expect(canEdit("/repo", l, "src/A.swift").ok).toBe(true);
+});
+
+test("canStep ignores unread optional reads", () => {
+  const l = ledger({
+    requiredReads: [
+      { key: "x", path: "p/draft.md", kind: "spec", hash: "h", read: false, required: false },
+    ],
+  });
+  expect(canStep(l, "A1").ok).toBe(true);
+});
+

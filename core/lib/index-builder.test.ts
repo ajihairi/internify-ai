@@ -76,3 +76,17 @@ test("missing specRoot throws", () => {
   const root = mkdtempSync(join(tmpdir(), "idx-"));
   expect(() => buildIndex(join(root, "nope"), root)).toThrow();
 });
+
+test("buildIndex marks required reads by document status", () => {
+  const root = mkdtempSync(join(tmpdir(), "idx-status-"));
+  mkdirSync(join(root, "spec"), { recursive: true });
+  writeFileSync(join(root, "spec", "SPECmd.md"), "---\nstatus: fixed\n---\n# Spec");
+  writeFileSync(join(root, "spec", "Plan.md"), "---\nstatus: draft\n---\n# Plan");
+  const idx = buildIndex(join(root, "spec"), root);
+  const spec = idx.requiredReads.find((r) => r.path.endsWith("SPECmd.md"));
+  const plan = idx.requiredReads.find((r) => r.path.endsWith("Plan.md"));
+  expect(spec?.required).toBe(true);
+  expect(spec?.status).toBe("fixed");
+  expect(plan?.required).toBe(false);
+  expect(plan?.status).toBe("draft");
+});

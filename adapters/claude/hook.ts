@@ -9,9 +9,12 @@
  * Wired by `internify init --tool claude`.
  */
 
+import { readFileSync, existsSync } from "node:fs";
+import { join, isAbsolute } from "node:path";
 import { getActive, loadLedger } from "../../core/lib/io";
 import { loadPaths } from "../../core/lib/config";
 import { canEdit, canBash } from "../../core/lib/gates";
+import { parseStatus } from "../../core/lib/status";
 
 const root = process.env.INTERNIFY_ROOT || process.cwd();
 
@@ -61,7 +64,14 @@ if (tool === "Bash") {
 
 const filePath = ti.file_path ?? ti.path;
 if (typeof filePath === "string") {
-  const d = canEdit(root, ledger, filePath);
+  let targetStatus: string | undefined;
+  try {
+    const abs = isAbsolute(filePath) ? filePath : join(root, filePath);
+    if (existsSync(abs)) targetStatus = parseStatus(readFileSync(abs, "utf8")) ?? undefined;
+  } catch {
+    /* ignore */
+  }
+  const d = canEdit(root, ledger, filePath, { targetStatus });
   if (!d.ok) {
     console.error(d.reason ?? "BLOCKED");
     process.exit(2);

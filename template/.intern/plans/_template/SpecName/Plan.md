@@ -1,3 +1,7 @@
+---
+status: draft
+---
+
 # Plan — <SpecName>
 
 > **HOW.** Step-by-step implementation plan. Each step should be small,

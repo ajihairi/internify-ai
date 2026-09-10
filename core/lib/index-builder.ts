@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { join, relative, resolve, isAbsolute } from "node:path";
 import type { Anchor, IndexFile, RequiredRead, Slice } from "./types";
 import { nowIso } from "./state";
+import { isRequiredRead, parseStatus } from "./status";
 
 const REF_RE = /`([^`\n]+?\.(?:swift|md|strings|json|ts|tsx|js|jsx|kt|java|py|go|rs|rb))`/g;
 
@@ -84,14 +85,17 @@ export function buildIndex(
 
   for (const f of specFiles) {
     const rel = relative(root, f);
+    const text = readFileSync(f, "utf8");
+    const status = parseStatus(text);
     requiredReads.push({
       key: rel.split("/").pop() ?? rel,
       path: rel,
       kind: "spec",
       hash: hashFile(f),
       read: false,
+      status: status ?? undefined,
+      required: isRequiredRead(status),
     });
-    const text = readFileSync(f, "utf8");
     for (const ref of extractRefs(text)) {
       const abs = resolve(target, ref);
       const ok =

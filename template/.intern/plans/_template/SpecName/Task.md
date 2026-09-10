@@ -1,3 +1,7 @@
+---
+status: draft
+---
+
 # Task — <SpecName>
 
 > **WHO.** Task list per role, with snippets where useful.

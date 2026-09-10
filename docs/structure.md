@@ -63,9 +63,18 @@ updated: 2026-09-10
 | `review` | propose changes, needs approval |
 | `fixed` | treat as source of truth; do not rewrite |
 
-A future `internify` release can infer scope/gates from this status (only
-`fixed` docs are "required reads"; drafts are free to edit). This keeps
-maintenance bounded: you don't have to keep everything canonical.
+Status is **enforced** by internify (see [Contract](../contract.md) §4b):
+
+| Status | Required read? | Editable? |
+|--------|----------------|-----------|
+| (none) | yes (default) | yes |
+| `fixed` | yes | **no** — source of truth |
+| `review` | no | yes |
+| `draft` | no | yes |
+
+So only `fixed` (and un-statused) docs must be read before editing, and `fixed`
+docs are never rewritten. This keeps maintenance bounded: you only have to keep
+the `fixed` set canonical.
 
 !!! note "Why not everything in internify?"
     internify enforces the loop; it does not try to be a full note-taking system.

@@ -103,8 +103,23 @@ proof: <how it was verified>
 | **Read** | Edit before required reads are done | `BLOCKED: ground first. Read: …` |
 | **Scope / Step** | Edit outside scope, or before a step is declared | `BLOCKED: file outside task scope…` |
 | **Anchor** | Step anchor not declared by a plan step, or index status ≠ `ok` | `BLOCKED: anchor "…" is not a declared plan anchor.` |
+| **Status** | Rewriting a `fixed` document (source of truth) | `BLOCKED: … is a fixed document (source of truth).` |
 | **Evidence** | Closing a task with a step that has no passing evidence | `BLOCKED: no passing evidence for step(s)…` |
 | **Bash** | A shell write before a step, or one that doesn't touch a scoped file | `BLOCKED: bash write … Prefer the edit/write tools.` |
+
+## 4b. Document status
+
+A document may carry `status: draft|review|fixed` in its YAML frontmatter:
+
+| Status | Read requirement | Editable |
+|--------|------------------|----------|
+| (none) | required (default) | yes |
+| `fixed` | required | **no** (source of truth) |
+| `review` | optional | yes |
+| `draft` | optional | yes |
+
+- Only required (no-status or `fixed`) reads block editing.
+- `fixed` documents are never rewritten; use `override` to force.
 
 A gate is a **decision function**, not an error: allowed tools may proceed;
 blocked tools raise and must not mutate.

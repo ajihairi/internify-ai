@@ -45,7 +45,7 @@ export interface BootInput {
 export function buildContextPack(input: BootInput): string {
   const active = input.ledger
     ? `- task: ${input.ledger.taskId} | phase: ${input.ledger.phase} | step: ${input.ledger.activeStep ?? "(none)"}\n` +
-      `- pending reads: ${input.ledger.requiredReads.filter((r) => !r.read).map((r) => r.path).join(", ") || "(none)"}`
+      `- pending reads: ${input.ledger.requiredReads.filter((r) => r.required !== false && !r.read).map((r) => r.path).join(", ") || "(none)"}`
     : "- (no active task)";
   return [
     "# CONTEXT — session pack",
