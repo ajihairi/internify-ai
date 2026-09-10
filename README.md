@@ -1,5 +1,8 @@
 # internify-ai
 
+[![npm version](https://img.shields.io/npm/v/internify-ai.svg)](https://www.npmjs.com/package/internify-ai)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+
 **A disk-backed engineer loop for AI agents.** Context lives on disk, not in the
 model's head — so agents stop hallucinating and stop losing grounding across
 sessions and compactions.
@@ -225,19 +228,16 @@ internify-ai/
 ### Install the CLI
 
 ```bash
-# from GitHub (SSH) — works today
-bun add -g git+ssh://git@github.com/ajihairi/internify-ai.git
-# or HTTPS
-bun add -g git+https://github.com/ajihairi/internify-ai.git
+# from npm (recommended)
+npm i -g internify-ai        # or: bun add -g internify-ai
 
 internify --help
 
-# from npm (once published)
-npm i -g internify-ai
+# or from GitHub (SSH)
+bun add -g git+ssh://git@github.com/ajihairi/internify-ai.git
 ```
 
 > No global install wanted? Run it from the checkout: `bun /path/to/internify-ai/core/cli.ts <cmd>`.
-> `bunx github:ajihairi/internify-ai <cmd>` also works when GitHub's codeload host is reachable.
 
 ### Set up a workspace
 
