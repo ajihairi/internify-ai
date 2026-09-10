@@ -158,12 +158,36 @@ tool-specific hook.
 - `bun run smoke` — end-to-end simulation over a temp fixture.
 - `tsc` on the adapter + CLI.
 
-## 11. v0 gaps (intentional)
+## 11. Modes (target vs knowledge)
 
-- Full anchor-token verification against code is not implemented.
-- INDEX is written as JSON, not the human-readable table + JSON block.
+`core/lib/config.ts` loads `<root>/internify.json`:
+
+```json
+{ "target": "../projectA", "knowledge": ".intern" }
+```
+
+- **Mode A (default):** no config → `target == root`, `knowledge == <root>/.intern`.
+- **Mode B:** config sets `target` (and optionally `knowledge`) so the tool and
+  the project can live side by side (`internify/` + `projectA/`).
+
+Paths are workspace-relative; `gate edit` receives workspace-relative paths.
+
+## 12. Status
+
+Implemented:
+
+- Disk-backed ledger/index/evidence + context pack, re-injected every turn.
+- Layered gates: read → scope/step → evidence, plus **bash write gating**.
+- **Anchor verification**: `intern_step` requires an anchor declared by a plan
+  step and, when the index knows it, a status of `ok`.
+- INDEX written as human-readable tables + a JSON block.
+- Mode A / Mode B (target ≠ knowledge).
+- opencode adapter + tool-agnostic CLI.
+- Tests: `core/lib` units + `adapters/opencode` smoke + `core/smoke.ts`.
+
+Remaining (smaller) gaps:
+
 - `grounded` / `recorded` phases are not separately assigned.
-- The opencode adapter gates only `edit`/`write`; `bash` and other mutators are
-  treated as trusted.
-- `io.ts` and the adapter have no dedicated unit tests (smoke covers io paths).
-- Mode B (knowledge dir separate from the project) is not implemented in the CLI.
+- The opencode adapter gates `edit` / `write` / `bash`; other mutators (if any)
+  are not covered.
+- Anchor tokens use a language-agnostic regex; exotic syntaxes may miss.

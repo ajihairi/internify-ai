@@ -26,6 +26,10 @@ Four things must stay fixed: **file schemas**, **actions**, **gates**, and
 
 A spec folder `.intern/plans/<SpecName>/` is the **unit of work**.
 
+`<root>/internify.json` (optional) sets `{ "target": "…", "knowledge": "…" }` to
+separate the project root from the knowledge dir (Mode B). Defaults:
+`target == root`, `knowledge == <root>/.intern`.
+
 ## 2. File schemas
 
 Machine-readable data is stored as JSON inside markdown, delimited by:
@@ -96,7 +100,9 @@ proof: <how it was verified>
 |------|--------|---------|
 | **Read** | Edit before required reads are done | `BLOCKED: ground first. Read: …` |
 | **Scope / Step** | Edit outside scope, or before a step is declared | `BLOCKED: file outside task scope…` |
+| **Anchor** | Step anchor not declared by a plan step, or index status ≠ `ok` | `BLOCKED: anchor "…" is not a declared plan anchor.` |
 | **Evidence** | Closing a task with a step that has no passing evidence | `BLOCKED: no passing evidence for step(s)…` |
+| **Bash** | A shell write before a step, or one that doesn't touch a scoped file | `BLOCKED: bash write … Prefer the edit/write tools.` |
 
 A gate is a **decision function**, not an error: allowed tools may proceed;
 blocked tools raise and must not mutate.

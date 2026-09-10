@@ -1,9 +1,10 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin";
 import { buildIndex } from "../../../core/lib/index-builder";
-import { canEdit, canStep, canClose } from "../../../core/lib/gates";
+import { canEdit, canStep, canClose, canBash } from "../../../core/lib/gates";
 import { sliceFunction, sliceSection } from "../../../core/lib/context";
-import { KNOWLEDGE_DIR, slug, emptyLedger, nowIso } from "../../../core/lib/state";
+import { loadPaths } from "../../../core/lib/config";
+import { slug, emptyLedger, nowIso } from "../../../core/lib/state";
 import {
   buildContextPack,
   extractSummary,
@@ -13,6 +14,7 @@ import {
   loadLedger,
   saveLedger,
   saveIndex,
+  readIndex,
   appendEvidence,
   readEvidence,
   setActive,
@@ -33,12 +35,15 @@ function toRel(root: string, p: string): string {
 export const InternHarness: Plugin = async ({ directory, worktree }) => {
   if (process.env.INTERN_HARNESS === "off") return {};
   const root = worktree || directory;
+  const paths = loadPaths(root);
+  const knowledge = paths.knowledge;
+  const target = paths.target;
 
   return {
     "experimental.chat.system.transform": async (_input, output) => {
-      const active = getActive(root);
+      const active = getActive(knowledge);
       if (active) {
-        const ledger = loadLedger(root, active.taskId);
+        const ledger = loadLedger(knowledge, active.taskId);
         if (!ledger) {
           if (Array.isArray(output.system)) {
             output.system.push(
@@ -47,7 +52,7 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           }
         } else {
           const state = [
-            "## HARNESS STATE (dari disk, bukan memory)",
+            "## HARNESS STATE (from disk, not memory)",
             `task: ${ledger.taskId} | phase: ${ledger.phase}`,
             `active step: ${ledger.activeStep ?? "(not declared)"}`,
             `pending reads: ${
@@ -58,7 +63,7 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           if (Array.isArray(output.system)) output.system.push(state);
         }
       }
-      const contextPath = join(root, KNOWLEDGE_DIR, "state", "CONTEXT.md");
+      const contextPath = join(knowledge, "state", "CONTEXT.md");
       if (existsSync(contextPath)) {
         output.system.push(
           "## SESSION CONTEXT (.intern/state/CONTEXT.md)\n" +
@@ -68,19 +73,35 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
     },
 
     "experimental.session.compacting": async (_input, output) => {
-      const active = getActive(root);
+      const active = getActive(knowledge);
       if (!active) return;
-      const ledger = loadLedger(root, active.taskId);
+      const ledger = loadLedger(knowledge, active.taskId);
       if (ledger && Array.isArray(output.context)) {
         output.context.push(`HARNESS LEDGER:\n${JSON.stringify(ledger)}`);
       }
     },
 
     "tool.execute.before": async (input, output) => {
+      if (input.tool === "bash") {
+        const active = getActive(knowledge);
+        if (!active) return;
+        const ledger = loadLedger(knowledge, active.taskId);
+        if (!ledger) {
+          throw new Error(
+            "BLOCKED: ledger corrupt or unreadable. Re-run intern_index or fix .intern/state/tasks/<id>/LEDGER.md",
+          );
+        }
+        const command: unknown = output.args?.command;
+        if (typeof command === "string") {
+          const d = canBash(root, ledger, command);
+          if (!d.ok) throw new Error(d.reason);
+        }
+        return;
+      }
       if (input.tool !== "edit" && input.tool !== "write") return;
-      const active = getActive(root);
+      const active = getActive(knowledge);
       if (!active) return;
-      const ledger = loadLedger(root, active.taskId);
+      const ledger = loadLedger(knowledge, active.taskId);
       if (!ledger) {
         throw new Error(
           "BLOCKED: ledger corrupt or unreadable. Re-run intern_index or fix .intern/state/tasks/<id>/LEDGER.md",
@@ -102,15 +123,15 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
       }
       if (dirty) {
         ledger.updated = nowIso();
-        saveLedger(root, ledger);
+        saveLedger(knowledge, ledger);
       }
     },
 
     "tool.execute.after": async (input, output) => {
       if (input.tool !== "read") return;
-      const active = getActive(root);
+      const active = getActive(knowledge);
       if (!active) return;
-      const ledger = loadLedger(root, active.taskId);
+      const ledger = loadLedger(knowledge, active.taskId);
       if (!ledger) return;
       const filePath: string | undefined =
         input.args?.filePath ?? input.args?.path;
@@ -125,7 +146,7 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
       }
       if (changed) {
         ledger.updated = nowIso();
-        saveLedger(root, ledger);
+        saveLedger(knowledge, ledger);
       }
     },
 
@@ -135,26 +156,26 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           "Collect session context from disk and write .intern/state/CONTEXT.md. Call once per new session.",
         args: {},
         async execute() {
-          const dailies = listDaily(root);
+          const dailies = listDaily(knowledge);
           const latest = pickLatestDaily(dailies);
           let dailyText = "";
           if (latest) {
             try {
-              dailyText = readFileSync(join(root, KNOWLEDGE_DIR, "daily", latest), "utf8");
+              dailyText = readFileSync(join(knowledge, "daily", latest), "utf8");
             } catch {
               dailyText = "";
             }
           }
-          const active = getActive(root);
-          const ledger = active ? loadLedger(root, active.taskId) : null;
+          const active = getActive(knowledge);
+          const ledger = active ? loadLedger(knowledge, active.taskId) : null;
           const pack = buildContextPack({
             generated: nowIso(),
             latestDaily: latest,
             dailySummary: extractSummary(dailyText),
             ledger,
-            specs: listSpecs(root),
+            specs: listSpecs(knowledge),
           });
-          writeContext(root, pack);
+          writeContext(knowledge, pack);
           return pack;
         },
       }),
@@ -171,9 +192,9 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
             throw new Error(`specRoot outside repo: ${args.specRoot}`);
           }
           const taskId = slug(specRel);
-          const idx = buildIndex(join(root, specRel), root);
-          saveIndex(root, taskId, idx);
-          const ledger = loadLedger(root, taskId) ?? emptyLedger(taskId, specRel);
+          const idx = buildIndex(join(root, specRel), root, target);
+          saveIndex(knowledge, taskId, idx);
+          const ledger = loadLedger(knowledge, taskId) ?? emptyLedger(taskId, specRel);
           ledger.requiredReads = idx.requiredReads.map((r) => ({ ...r, read: false }));
           ledger.scope = idx.requiredReads
             .filter((r) => r.kind === "code")
@@ -189,8 +210,8 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           }
           ledger.phase = "orient";
           ledger.updated = nowIso();
-          saveLedger(root, ledger);
-          setActive(root, taskId, specRel);
+          saveLedger(knowledge, ledger);
+          setActive(knowledge, taskId, specRel);
           return `INDEX built. task=${taskId} reads=${idx.requiredReads.length}`;
         },
       }),
@@ -218,16 +239,17 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
         description: "Declare the active plan step and anchor.",
         args: { stepId: tool.schema.string(), anchor: tool.schema.string() },
         async execute(args) {
-          const active = getActive(root);
+          const active = getActive(knowledge);
           if (!active) return "No active task. Run intern_index first.";
-          const ledger = loadLedger(root, active.taskId);
+          const ledger = loadLedger(knowledge, active.taskId);
           if (!ledger) return "Ledger missing.";
-          const d = canStep(ledger, args.anchor);
+          const idx = readIndex(knowledge, active.taskId);
+          const d = canStep(ledger, args.anchor, idx?.anchors ?? []);
           if (!d.ok) throw new Error(d.reason);
           ledger.activeStep = args.stepId;
           ledger.phase = "planned";
           ledger.updated = nowIso();
-          saveLedger(root, ledger);
+          saveLedger(knowledge, ledger);
           return `Step ${args.stepId} active (anchor ${args.anchor}).`;
         },
       }),
@@ -241,21 +263,21 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           result: tool.schema.enum(["pass", "fail"]),
         },
         async execute(args) {
-          const active = getActive(root);
+          const active = getActive(knowledge);
           if (!active) return "No active task.";
-          const ledger = loadLedger(root, active.taskId);
+          const ledger = loadLedger(knowledge, active.taskId);
           if (!ledger) return "Ledger missing.";
           if (!ledger.steps.some((s) => s.id === args.step)) {
             throw new Error(`unknown step: ${args.step}`);
           }
           appendEvidence(
-            root,
+            knowledge,
             active.taskId,
             `## ${args.step} ${nowIso()} result=${args.result}\nclaim: ${args.claim}\nproof: ${args.proof}`,
           );
           ledger.phase = "verifying";
           ledger.updated = nowIso();
-          saveLedger(root, ledger);
+          saveLedger(knowledge, ledger);
           return `Evidence recorded for ${args.step} (${args.result}).`;
         },
       }),
@@ -264,22 +286,22 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
         description: "Close the task after all steps have passing evidence.",
         args: {},
         async execute() {
-          const active = getActive(root);
+          const active = getActive(knowledge);
           if (!active) return "No active task.";
-          const ledger = loadLedger(root, active.taskId);
+          const ledger = loadLedger(knowledge, active.taskId);
           if (!ledger) return "Ledger missing.";
-          const d = canClose(ledger, readEvidence(root, active.taskId));
+          const d = canClose(ledger, readEvidence(knowledge, active.taskId));
           if (!d.ok) throw new Error(d.reason);
           const daily = appendDaily(
-            root,
-            `### Harness task closed — ${active.taskId} ${nowIso()}\n` +
+            knowledge,
+            `### internify task closed — ${active.taskId} ${nowIso()}\n` +
               `- steps: ${ledger.steps.map((s) => s.id).join(", ")}\n` +
               `- evidence: .intern/state/tasks/${active.taskId}/EVIDENCE.md`,
           );
           ledger.steps.forEach((s) => (s.done = true));
           ledger.phase = "done";
           ledger.updated = nowIso();
-          saveLedger(root, ledger);
+          saveLedger(knowledge, ledger);
           return `Task ${active.taskId} closed. Daily log: ${daily}`;
         },
       }),
@@ -288,9 +310,9 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
         description: "Show current phase and ledger summary.",
         args: {},
         async execute() {
-          const active = getActive(root);
+          const active = getActive(knowledge);
           if (!active) return "No active task.";
-          const ledger = loadLedger(root, active.taskId);
+          const ledger = loadLedger(knowledge, active.taskId);
           if (!ledger) return "Ledger missing.";
           return JSON.stringify(ledger, null, 2);
         },
@@ -300,16 +322,16 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
         description: "Override a gate with a recorded reason (escape hatch).",
         args: { reason: tool.schema.string() },
         async execute(args) {
-          const active = getActive(root);
+          const active = getActive(knowledge);
           if (!active) return "No active task.";
-          const ledger = loadLedger(root, active.taskId);
+          const ledger = loadLedger(knowledge, active.taskId);
           if (!ledger) return "Ledger missing.";
           ledger.decisions.push(`OVERRIDE ${nowIso()}: ${args.reason}`);
           ledger.forceAllow = true;
           ledger.updated = nowIso();
-          saveLedger(root, ledger);
+          saveLedger(knowledge, ledger);
           appendEvidence(
-            root,
+            knowledge,
             active.taskId,
             `## OVERRIDE ${nowIso()}\nreason: ${args.reason}`,
           );

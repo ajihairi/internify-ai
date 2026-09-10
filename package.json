@@ -11,7 +11,7 @@
   },
   "scripts": {
     "cli": "bun core/cli.ts",
-    "test": "bun test core/lib",
+    "test": "bun test core/lib adapters/opencode",
     "smoke": "bun core/smoke.ts"
   }
 }

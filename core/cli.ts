@@ -5,32 +5,32 @@
  * Usage:
  *   internify boot
  *   internify index <spec-folder>
+ *   internify read <path>
  *   internify context <path> <selector> [--kind section|function]
  *   internify step <id> <anchor>
  *   internify evidence <step> --claim <c> --proof <p> --result pass|fail
  *   internify close
  *   internify status
  *   internify override <reason>
- *   internify gate edit <file>      (exit 1 if blocked)
+ *   internify gate edit <file>
+ *   internify gate bash "<command>"
  *
- * Root = cwd, or INTERNIFY_ROOT. Knowledge lives in <root>/.intern.
+ * Workspace root = cwd, or INTERNIFY_ROOT. Knowledge dir defaults to
+ * <root>/.intern; override both root and target via <root>/internify.json.
  */
 
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve, relative, isAbsolute } from "node:path";
 import { buildIndex } from "./lib/index-builder";
-import { canEdit, canStep, canClose } from "./lib/gates";
+import { canEdit, canStep, canClose, canBash } from "./lib/gates";
 import { sliceFunction, sliceSection } from "./lib/context";
-import {
-  KNOWLEDGE_DIR,
-  slug,
-  emptyLedger,
-  nowIso,
-} from "./lib/state";
+import { loadPaths } from "./lib/config";
+import { slug, emptyLedger, nowIso } from "./lib/state";
 import {
   loadLedger,
   saveLedger,
   saveIndex,
+  readIndex,
   appendEvidence,
   readEvidence,
   setActive,
@@ -45,6 +45,7 @@ import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
 const root = process.env.INTERNIFY_ROOT
   ? resolve(process.env.INTERNIFY_ROOT)
   : process.cwd();
+const { knowledge, target } = loadPaths(root);
 
 function fail(msg: string): never {
   console.error(msg);
@@ -71,26 +72,26 @@ function flags(argv: string[]): Record<string, string> {
 }
 
 function cmdBoot(): void {
-  const dailies = listDaily(root);
+  const dailies = listDaily(knowledge);
   const latest = pickLatestDaily(dailies);
   let dailyText = "";
   if (latest) {
     try {
-      dailyText = readFileSync(join(root, KNOWLEDGE_DIR, "daily", latest), "utf8");
+      dailyText = readFileSync(join(knowledge, "daily", latest), "utf8");
     } catch {
       dailyText = "";
     }
   }
-  const active = getActive(root);
-  const ledger = active ? loadLedger(root, active.taskId) : null;
+  const active = getActive(knowledge);
+  const ledger = active ? loadLedger(knowledge, active.taskId) : null;
   const pack = buildContextPack({
     generated: nowIso(),
     latestDaily: latest,
     dailySummary: extractSummary(dailyText),
     ledger,
-    specs: listSpecs(root),
+    specs: listSpecs(knowledge),
   });
-  writeContext(root, pack);
+  writeContext(knowledge, pack);
   console.log(pack);
 }
 
@@ -98,11 +99,10 @@ function cmdIndex(specArg: string): void {
   if (!specArg) fail("usage: internify index <spec-folder>");
   const rel = toRel(specArg);
   if (!inRepo(rel)) fail(`specRoot outside repo: ${specArg}`);
-  const abs = join(root, rel);
   const taskId = slug(rel);
-  const idx = buildIndex(abs, root);
-  saveIndex(root, taskId, idx);
-  const ledger = loadLedger(root, taskId) ?? emptyLedger(taskId, rel);
+  const idx = buildIndex(join(root, rel), root, target);
+  saveIndex(knowledge, taskId, idx);
+  const ledger = loadLedger(knowledge, taskId) ?? emptyLedger(taskId, rel);
   ledger.requiredReads = idx.requiredReads.map((r) => ({ ...r, read: false }));
   ledger.scope = idx.requiredReads.filter((r) => r.kind === "code").map((r) => r.path);
   if (ledger.scope.length === 0) ledger.scope = [rel];
@@ -116,9 +116,34 @@ function cmdIndex(specArg: string): void {
   }
   ledger.phase = "orient";
   ledger.updated = nowIso();
-  saveLedger(root, ledger);
-  setActive(root, taskId, rel);
+  saveLedger(knowledge, ledger);
+  setActive(knowledge, taskId, rel);
   console.log(`INDEX built. task=${taskId} reads=${idx.requiredReads.length}`);
+}
+
+function cmdRead(pathArg: string): void {
+  if (!pathArg) fail("usage: internify read <path>");
+  const abs = join(root, pathArg);
+  const rel = toRel(abs);
+  if (!inRepo(rel) || !existsSync(abs)) fail(`path outside repo or missing: ${pathArg}`);
+  const active = getActive(knowledge);
+  if (active) {
+    const ledger = loadLedger(knowledge, active.taskId);
+    if (ledger) {
+      let changed = false;
+      for (const r of ledger.requiredReads) {
+        if (!r.read && r.path === rel) {
+          r.read = true;
+          changed = true;
+        }
+      }
+      if (changed) {
+        ledger.updated = nowIso();
+        saveLedger(knowledge, ledger);
+      }
+    }
+  }
+  process.stdout.write(readFileSync(abs, "utf8"));
 }
 
 function cmdContext(pathArg: string, selector: string, kind: string): void {
@@ -131,7 +156,7 @@ function cmdContext(pathArg: string, selector: string, kind: string): void {
 }
 
 function activeLedger(): { taskId: string } {
-  const active = getActive(root);
+  const active = getActive(knowledge);
   if (!active) fail("no active task. run: internify index <spec-folder>");
   return active;
 }
@@ -139,14 +164,15 @@ function activeLedger(): { taskId: string } {
 function cmdStep(id: string, anchor: string): void {
   if (!id) fail("usage: internify step <id> <anchor>");
   const active = activeLedger();
-  const ledger = loadLedger(root, active.taskId);
+  const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
-  const d = canStep(ledger, anchor ?? "");
+  const idx = readIndex(knowledge, active.taskId);
+  const d = canStep(ledger, anchor ?? "", idx?.anchors ?? []);
   if (!d.ok) fail(d.reason ?? "blocked");
   ledger.activeStep = id;
   ledger.phase = "planned";
   ledger.updated = nowIso();
-  saveLedger(root, ledger);
+  saveLedger(knowledge, ledger);
   console.log(`Step ${id} active (anchor ${anchor ?? ""}).`);
 }
 
@@ -155,43 +181,43 @@ function cmdEvidence(step: string, argv: string[]): void {
   const f = flags(argv);
   const result = (f.result ?? "pass") as "pass" | "fail";
   const active = activeLedger();
-  const ledger = loadLedger(root, active.taskId);
+  const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
   if (!ledger.steps.some((s) => s.id === step)) fail(`unknown step: ${step}`);
   appendEvidence(
-    root,
+    knowledge,
     active.taskId,
     `## ${step} ${nowIso()} result=${result}\nclaim: ${f.claim ?? ""}\nproof: ${f.proof ?? ""}`,
   );
   ledger.phase = "verifying";
   ledger.updated = nowIso();
-  saveLedger(root, ledger);
+  saveLedger(knowledge, ledger);
   console.log(`Evidence recorded for ${step} (${result}).`);
 }
 
 function cmdClose(): void {
   const active = activeLedger();
-  const ledger = loadLedger(root, active.taskId);
+  const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
-  const d = canClose(ledger, readEvidence(root, active.taskId));
+  const d = canClose(ledger, readEvidence(knowledge, active.taskId));
   if (!d.ok) fail(d.reason ?? "blocked");
   const daily = appendDaily(
-    root,
+    knowledge,
     `### internify task closed — ${active.taskId} ${nowIso()}\n` +
       `- steps: ${ledger.steps.map((s) => s.id).join(", ")}\n` +
-      `- evidence: ${KNOWLEDGE_DIR}/state/tasks/${active.taskId}/EVIDENCE.md`,
+      `- evidence: .intern/state/tasks/${active.taskId}/EVIDENCE.md`,
   );
   ledger.steps.forEach((s) => (s.done = true));
   ledger.phase = "done";
   ledger.updated = nowIso();
-  saveLedger(root, ledger);
-  console.log(`Task ${active.taskId} closed. Daily: ${KNOWLEDGE_DIR}/daily/${daily}`);
+  saveLedger(knowledge, ledger);
+  console.log(`Task ${active.taskId} closed. Daily: .intern/daily/${daily}`);
 }
 
 function cmdStatus(): void {
-  const active = getActive(root);
+  const active = getActive(knowledge);
   if (!active) fail("no active task.");
-  const ledger = loadLedger(root, active.taskId);
+  const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt.");
   console.log(JSON.stringify(ledger, null, 2));
 }
@@ -199,54 +225,39 @@ function cmdStatus(): void {
 function cmdOverride(reason: string): void {
   if (!reason) fail("usage: internify override <reason>");
   const active = activeLedger();
-  const ledger = loadLedger(root, active.taskId);
+  const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
   ledger.decisions.push(`OVERRIDE ${nowIso()}: ${reason}`);
   ledger.forceAllow = true;
   ledger.updated = nowIso();
-  saveLedger(root, ledger);
-  appendEvidence(root, active.taskId, `## OVERRIDE ${nowIso()}\nreason: ${reason}`);
+  saveLedger(knowledge, ledger);
+  appendEvidence(knowledge, active.taskId, `## OVERRIDE ${nowIso()}\nreason: ${reason}`);
   console.log("Override recorded (one-shot).");
 }
 
 function cmdGateEdit(file: string): void {
   if (!file) fail("usage: internify gate edit <file>");
   const active = activeLedger();
-  const ledger = loadLedger(root, active.taskId);
+  const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
   const d = canEdit(root, ledger, file);
   if (!d.ok) fail(d.reason ?? "blocked");
   if (ledger.forceAllow) {
     ledger.forceAllow = false;
     ledger.updated = nowIso();
-    saveLedger(root, ledger);
+    saveLedger(knowledge, ledger);
   }
   console.log(`OK: ${file} is editable.`);
 }
 
-function cmdRead(pathArg: string): void {
-  if (!pathArg) fail("usage: internify read <path>");
-  const abs = join(root, pathArg);
-  const rel = toRel(abs);
-  if (!inRepo(rel) || !existsSync(abs)) fail(`path outside repo or missing: ${pathArg}`);
-  const active = getActive(root);
-  if (active) {
-    const ledger = loadLedger(root, active.taskId);
-    if (ledger) {
-      let changed = false;
-      for (const r of ledger.requiredReads) {
-        if (!r.read && r.path === rel) {
-          r.read = true;
-          changed = true;
-        }
-      }
-      if (changed) {
-        ledger.updated = nowIso();
-        saveLedger(root, ledger);
-      }
-    }
-  }
-  process.stdout.write(readFileSync(abs, "utf8"));
+function cmdGateBash(command: string): void {
+  if (!command) fail('usage: internify gate bash "<command>"');
+  const active = activeLedger();
+  const ledger = loadLedger(knowledge, active.taskId);
+  if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
+  const d = canBash(root, ledger, command);
+  if (!d.ok) fail(d.reason ?? "blocked");
+  console.log("OK: bash command allowed.");
 }
 
 function usage(): void {
@@ -263,8 +274,10 @@ Commands:
   status                            show phase + ledger
   override <reason>                 one-shot recorded gate bypass
   gate edit <file>                  exit 1 if the file is blocked
+  gate bash "<command>"             exit 1 if the bash write is blocked
 
-Env: INTERNIFY_ROOT (default: cwd). Knowledge dir: ${KNOWLEDGE_DIR}`);
+Env: INTERNIFY_ROOT (default: cwd). Config: <root>/internify.json
+  { "target": "...", "knowledge": "..." }`);
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -298,7 +311,8 @@ switch (cmd) {
     break;
   case "gate":
     if (rest[0] === "edit") cmdGateEdit(rest[1]);
-    else fail("usage: internify gate edit <file>");
+    else if (rest[0] === "bash") cmdGateBash(rest.slice(1).join(" "));
+    else fail("usage: internify gate edit <file> | gate bash \"<command>\"");
     break;
   case undefined:
   case "-h":

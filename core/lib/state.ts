@@ -1,6 +1,9 @@
 import { join } from "node:path";
 import { extractBlock, upsertBlock } from "./markdown";
-import type { Ledger } from "./types";
+import type { IndexFile, Ledger } from "./types";
+
+/** Default folder (relative to the workspace root) holding internify knowledge. */
+export const KNOWLEDGE_DIR = ".intern";
 
 export function slug(specRoot: string): string {
   const name = specRoot.replace(/\/+$/, "").split("/").pop() || "task";
@@ -85,17 +88,64 @@ export function parseLedger(md: string): Ledger | null {
   }
 }
 
-/** Folder that holds internify knowledge + runtime state, relative to the root. */
-export const KNOWLEDGE_DIR = ".intern";
-
-export function knowledgeDir(repoRoot: string): string {
-  return join(repoRoot, KNOWLEDGE_DIR);
+export function serializeIndex(idx: IndexFile): string {
+  const readRows = idx.requiredReads
+    .map((r) => `| ${r.key} | \`${r.path}\` | ${r.kind} | \`${r.hash.slice(0, 8)}\` |`)
+    .join("\n");
+  const anchorRows = idx.anchors
+    .map((a) => `| ${a.id} | \`${a.file}\` | ${a.line} | ${a.token || "-"} | ${a.status} |`)
+    .join("\n");
+  const sliceRows = idx.slices
+    .map((s) => `| ${s.key} | \`${s.from}\` | ${s.selector} |`)
+    .join("\n");
+  const md = [
+    `# INDEX — ${idx.specRoot}`,
+    `spec_root: ${idx.specRoot}`,
+    `generated: ${idx.generated}`,
+    "",
+    "## Required reads",
+    "| key | path | kind | hash |",
+    "|-----|------|------|------|",
+    readRows || "| (none) | | | |",
+    "",
+    "## Anchors",
+    "| id | file | line | token | status |",
+    "|----|------|------|-------|--------|",
+    anchorRows || "| (none) | | | | |",
+    "",
+    "## Slices",
+    "| key | from | selector |",
+    "|-----|------|----------|",
+    sliceRows || "| (none) | | |",
+  ].join("\n");
+  return upsertBlock(md + "\n", "index", idx);
 }
 
-export function stateRoot(repoRoot: string): string {
-  return join(repoRoot, KNOWLEDGE_DIR, "state");
+export function parseIndex(md: string): IndexFile | null {
+  const raw = extractBlock(md, "index");
+  if (!raw) return null;
+  try {
+    const obj: unknown = JSON.parse(raw);
+    if (typeof obj !== "object" || obj === null) return null;
+    const i = obj as Record<string, unknown>;
+    if (typeof i.specRoot !== "string") return null;
+    if (
+      !Array.isArray(i.requiredReads) ||
+      !Array.isArray(i.anchors) ||
+      !Array.isArray(i.slices)
+    ) {
+      return null;
+    }
+    return obj as IndexFile;
+  } catch {
+    return null;
+  }
 }
 
-export function taskDir(repoRoot: string, taskId: string): string {
-  return join(stateRoot(repoRoot), "tasks", taskId);
+export function stateRoot(knowledgeRoot: string): string {
+  return join(knowledgeRoot, "state");
+}
+
+export function taskDir(knowledgeRoot: string, taskId: string): string {
+  return join(stateRoot(knowledgeRoot), "tasks", taskId);
 }

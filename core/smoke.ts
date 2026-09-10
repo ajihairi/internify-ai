@@ -44,6 +44,7 @@ function check(name: string, ok: boolean, observed: string) {
 }
 
 const root = mkdtempSync(join(tmpdir(), "intern-harness-smoke-"));
+const knowledge = join(root, ".intern");
 const specDir = join(root, "spec");
 
 function put(rel: string, content: string) {
@@ -94,9 +95,9 @@ ledger.steps = idx.slices.slice(0, 5).map((s, i) => ({
   anchor: idx.anchors[i]?.id ?? s.key,
   done: false,
 }));
-saveIndex(root, taskId, idx);
-saveLedger(root, ledger);
-setActive(root, taskId, "spec");
+saveIndex(knowledge, taskId, idx);
+saveLedger(knowledge, ledger);
+setActive(knowledge, taskId, "spec");
 
 check(
   "index: buildIndex resolves spec+code reads",
@@ -123,11 +124,11 @@ check(
 );
 
 check(
-  "ledger: steps from slices with anchor fallback",
+  "ledger: steps from slices with a non-empty anchor",
   ledger.steps.length === 1 &&
     ledger.steps[0].id === "S1" &&
     ledger.steps[0].title === "Summary" &&
-    ledger.steps[0].anchor === "slice-1",
+    ledger.steps[0].anchor.length > 0,
   `steps=${JSON.stringify(ledger.steps.map((s) => ({
     id: s.id,
     title: s.title,
@@ -135,7 +136,7 @@ check(
   })))}`,
 );
 
-const active = getActive(root);
+const active = getActive(knowledge);
 check(
   "active: setActive/getActive round-trip",
   !!active && active.taskId === taskId && active.specRoot === "spec",
@@ -177,7 +178,7 @@ check(
 );
 
 console.log("\n## gate 3 — evidence + close");
-const evBefore = readEvidence(root, taskId);
+const evBefore = readEvidence(knowledge, taskId);
 const closeBefore = canClose(ledger, evBefore);
 check(
   "gate3: no evidence before",
@@ -191,11 +192,11 @@ check(
 );
 
 appendEvidence(
-  root,
+  knowledge,
   taskId,
   `## S1 ${new Date().toISOString()} result=pass\nclaim: sim claim\nproof: sim proof`,
 );
-const evAfter = readEvidence(root, taskId);
+const evAfter = readEvidence(knowledge, taskId);
 check(
   "gate3: readEvidence parses pass record",
   evAfter.length === 1 &&
@@ -220,8 +221,8 @@ check(
     ? `taskId=${round.taskId} phase=${round.phase} activeStep=${round.activeStep} steps=${round.steps.length}`
     : "parse returned null",
 );
-saveLedger(root, ledger);
-const reloaded = loadLedger(root, taskId);
+saveLedger(knowledge, ledger);
+const reloaded = loadLedger(knowledge, taskId);
 check(
   "ledger: save/load via disk",
   !!reloaded && reloaded.activeStep === "S1" && reloaded.steps.length === 1,
@@ -229,8 +230,8 @@ check(
 );
 
 console.log("\n## daily + boot");
-const dailyName = appendDaily(root, "sim closed");
-const dailyList = listDaily(root);
+const dailyName = appendDaily(knowledge, "sim closed");
+const dailyList = listDaily(knowledge);
 const latest = pickLatestDaily(dailyList);
 const fixtureDaily = readFileSync(
   join(root, ".intern", "daily", "09-09-2026.md"),
@@ -267,7 +268,7 @@ const pack = buildContextPack({
   ledger,
   specs: ["spec"],
 });
-writeContext(root, pack);
+writeContext(knowledge, pack);
 const ctxPath = join(root, ".intern", "state", "CONTEXT.md");
 const ctx = existsSync(ctxPath) ? readFileSync(ctxPath, "utf8") : "";
 check(

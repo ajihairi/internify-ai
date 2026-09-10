@@ -1,5 +1,5 @@
 import { isAbsolute, join, relative } from "node:path";
-import type { Ledger } from "./types";
+import type { Anchor, Ledger } from "./types";
 
 export interface Decision {
   ok: boolean;
@@ -50,11 +50,33 @@ export function canEdit(repoRoot: string, ledger: Ledger, filePath: string): Dec
   return { ok: true };
 }
 
-export function canStep(ledger: Ledger, anchor: string): Decision {
+/**
+ * Verify an anchor before entering the plan.
+ * - the anchor must be one declared by a plan step, and
+ * - if the index knows it, its status must be `ok`.
+ */
+export function canStep(
+  ledger: Ledger,
+  anchor: string,
+  anchors: Anchor[] = [],
+): Decision {
   if (ledger.requiredReads.some((r) => !r.read)) {
     return { ok: false, reason: "BLOCKED: finish the required reads first." };
   }
   if (!anchor) return { ok: false, reason: "BLOCKED: anchor is required." };
+  if (!ledger.steps.some((s) => s.anchor === anchor)) {
+    return {
+      ok: false,
+      reason: `BLOCKED: anchor "${anchor}" is not a declared plan anchor.`,
+    };
+  }
+  const known = anchors.find((a) => a.id === anchor);
+  if (known && known.status !== "ok") {
+    return {
+      ok: false,
+      reason: `BLOCKED: anchor ${anchor} is ${known.status}. Re-run intern_index.`,
+    };
+  }
   return { ok: true };
 }
 
@@ -69,6 +91,44 @@ export function canClose(ledger: Ledger, evidence: EvidenceRecord[]): Decision {
     return {
       ok: false,
       reason: `BLOCKED: no passing evidence for step(s): ${missing.map((s) => s.id).join(", ")}`,
+    };
+  }
+  return { ok: true };
+}
+
+/** Does a shell command look like it writes to the filesystem? */
+export function bashWrites(command: string): boolean {
+  return (
+    /(^|\s)(>>?|tee\b|sed\s+-i|mv\b|cp\b|rm\b|dd\b|truncate\b|install\b|ln\b)/.test(
+      command,
+    ) || /(^|\s)>/.test(command)
+  );
+}
+
+/**
+ * Gate the `bash` tool. Non-writing commands pass. Writing commands are only
+ * allowed when a step is active and the command references a file in scope
+ * (or an override is in force).
+ */
+export function canBash(
+  repoRoot: string,
+  ledger: Ledger,
+  command: string,
+): Decision {
+  if (ledger.forceAllow) return { ok: true };
+  if (!bashWrites(command)) return { ok: true };
+  if (ledger.phase !== "planned" && ledger.phase !== "acting") {
+    return {
+      ok: false,
+      reason: "BLOCKED: bash write before a step. Declare a step via intern_step.",
+    };
+  }
+  const mentionsScope = ledger.scope.some((s) => command.includes(s));
+  if (!mentionsScope) {
+    return {
+      ok: false,
+      reason:
+        "BLOCKED: bash write does not reference a file in scope. Prefer the edit/write tools.",
     };
   }
   return { ok: true };

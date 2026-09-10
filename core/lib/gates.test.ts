@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { canEdit, canStep, canClose } from "./gates";
+import { canEdit, canStep, canClose, canBash, bashWrites } from "./gates";
 import type { Ledger } from "./types";
 
 function ledger(over: Partial<Ledger> = {}): Ledger {
@@ -81,3 +81,45 @@ test("canStep requires an anchor", () => {
   expect(canStep(ledger(), "").ok).toBe(false);
   expect(canStep(ledger(), "A1").ok).toBe(true);
 });
+
+test("canStep blocks an anchor that is not a declared plan anchor", () => {
+  expect(canStep(ledger(), "ZZ").ok).toBe(false);
+});
+
+test("canStep blocks an anchor whose index status is stale", () => {
+  const anchors = [
+    { id: "A1", file: "src/A.swift", line: 3, token: "a", status: "stale" as const },
+  ];
+  const r = canStep(ledger(), "A1", anchors);
+  expect(r.ok).toBe(false);
+  expect(r.reason).toContain("stale");
+});
+
+test("bashWrites detects redirects and mutators", () => {
+  expect(bashWrites("echo hi > a.txt")).toBe(true);
+  expect(bashWrites("cat x >> y")).toBe(true);
+  expect(bashWrites("sed -i '' s/a/b/ f")).toBe(true);
+  expect(bashWrites("mv a b")).toBe(true);
+  expect(bashWrites("ls -la")).toBe(false);
+  expect(bashWrites("grep foo bar")).toBe(false);
+});
+
+test("canBash blocks a write before a step", () => {
+  const l = ledger({ phase: "orient", scope: ["src/A.swift"] });
+  expect(canBash("/repo", l, "echo x > src/A.swift").ok).toBe(false);
+});
+
+test("canBash blocks a write that does not reference scope", () => {
+  const l = ledger({ phase: "acting", scope: ["src/A.swift"] });
+  expect(canBash("/repo", l, "echo x > src/B.swift").ok).toBe(false);
+});
+
+test("canBash allows a scoped write when acting", () => {
+  const l = ledger({ phase: "acting", scope: ["src/A.swift"] });
+  expect(canBash("/repo", l, "echo x > src/A.swift").ok).toBe(true);
+});
+
+test("canBash allows non-writing commands unconditionally", () => {
+  expect(canBash("/repo", ledger({ phase: "orient", scope: [] }), "ls -la").ok).toBe(true);
+});
+

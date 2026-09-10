@@ -126,12 +126,14 @@ bun core/cli.ts index .intern/plans/FeatureX
 bun core/cli.ts read src/Feature.swift     # print + mark a required read
 bun core/cli.ts step S1 slice-1
 bun core/cli.ts gate edit src/Feature.swift # exit 1 if blocked
+bun core/cli.ts gate bash "echo x > src/Feature.swift" # exit 1 if blocked
 bun core/cli.ts evidence S1 --claim wired --proof "read:1" --result pass
 bun core/cli.ts close
 ```
 
-`INTERNIFY_ROOT` overrides the workspace root (default: cwd). See
-[`docs/DESIGN.md`](./docs/DESIGN.md) for the design.
+`INTERNIFY_ROOT` overrides the workspace root (default: cwd). `<root>/internify.json`
+(`{ "target": "…", "knowledge": "…" }`) separates the project from the knowledge
+dir (Mode B). See [`docs/DESIGN.md`](./docs/DESIGN.md) for the design.
 
 ## Spec structure
 
