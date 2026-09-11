@@ -6,6 +6,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-09-11
+
+### Added
+
+- `docs/scan.md` — dedicated reference page for the project AI scan feature
+  (whitelist, config, commands, cache files, `INTERN_SCAN=off`, troubleshooting),
+  linked from the docs nav, `index`, `cli`, `commands`, and `README`.
+
 ## [0.10.0] - 2026-09-10
 
 ### Added
