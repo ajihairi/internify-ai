@@ -97,9 +97,16 @@ export function buildIndex(
       required: isRequiredRead(status),
     });
     for (const ref of extractRefs(text)) {
-      const abs = resolve(target, ref);
+      // Resolve against `target` first; fall back to `root` so specs can
+      // reference cross-repo files (root-relative) without unresolved anchors.
+      const targetAbs = resolve(target, ref);
+      const targetOk =
+        within(target, targetAbs) && existsSync(targetAbs) && statSync(targetAbs).isFile();
+      const abs = targetOk
+        ? targetAbs
+        : resolve(root, ref);
       const ok =
-        within(target, abs) && existsSync(abs) && statSync(abs).isFile();
+        (targetOk || within(root, abs)) && existsSync(abs) && statSync(abs).isFile();
       if (!ok) {
         addAnchor(ref, "unresolved");
         continue;

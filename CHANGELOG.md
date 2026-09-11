@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-09-11
+
+### Added
+
+- Spec refs now resolve against `target` first, then fall back to the workspace
+  `root`. A spec in one workspace can reference cross-repo files root-relative
+  (e.g. `internify-ai/core/lib/boot.ts`) and get ok anchors, required reads, and
+  scope entries without `override`.
+
 ## [0.12.0] - 2026-09-11
 
 ### Added

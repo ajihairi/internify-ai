@@ -158,3 +158,23 @@ test("canStep ignores unread optional reads", () => {
   expect(canStep(l, "A1").ok).toBe(true);
 });
 
+test("canStep passes for a resolved (status ok) anchor", () => {
+  const l = ledger({
+    requiredReads: [],
+    steps: [{ id: "S1", title: "x", anchor: "A1", done: false }],
+  });
+  const r = canStep(l, "A1", [
+    { id: "A1", file: "internify-ai/core/lib/boot.ts", line: 1, token: "boot", status: "ok" },
+  ]);
+  expect(r.ok).toBe(true);
+});
+
+test("canEdit allows a root-relative cross-repo scope entry", () => {
+  const l = ledger({
+    phase: "acting",
+    scope: ["internify-ai/core/lib/boot.ts"],
+    activeStep: "S1",
+  });
+  expect(canEdit("/repo", l, "internify-ai/core/lib/boot.ts").ok).toBe(true);
+});
+

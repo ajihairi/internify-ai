@@ -90,3 +90,17 @@ test("buildIndex marks required reads by document status", () => {
   expect(plan?.required).toBe(false);
   expect(plan?.status).toBe("draft");
 });
+
+test("cross-repo ref resolves against root when missing in target", () => {
+  const root = mkdtempSync(join(tmpdir(), "idx-xrepo-"));
+  const target = join(root, "workspace");
+  mkdirSync(join(target, "spec"), { recursive: true });
+  mkdirSync(join(root, "internify-ai", "core", "lib"), { recursive: true });
+  writeFileSync(join(target, "spec", "SPECmd.md"), "# spec `internify-ai/core/lib/boot.ts`");
+  writeFileSync(join(root, "internify-ai", "core", "lib", "boot.ts"), "export const x = 1;");
+  const idx = buildIndex(join(target, "spec"), root, target);
+  const read = idx.requiredReads.find((r) => r.path === "internify-ai/core/lib/boot.ts");
+  expect(read).toBeDefined();
+  const anchor = idx.anchors.find((a) => a.file === "internify-ai/core/lib/boot.ts");
+  expect(anchor?.status).toBe("ok");
+});
