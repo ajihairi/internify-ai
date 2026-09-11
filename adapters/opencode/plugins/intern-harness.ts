@@ -13,6 +13,7 @@ import {
 } from "../../../core/lib/boot";
 import { findSpecTemplate, newSpec, specNameFromPath } from "../../../core/lib/spec";
 import { syncProjectContext } from "../../../core/lib/discover";
+import { syncCodeKnowledge, buildDigestSummary } from "../../../core/lib/learn";
 import { formatDailyUnfinished, loadLatestDaily } from "../../../core/lib/daily";
 import {
   loadLedger,
@@ -23,10 +24,14 @@ import {
   readEvidence,
   setActive,
   getActive,
+  getPrimary,
+  clearActive,
+  loadActiveTasks,
   appendDaily,
   listDaily,
   listSpecs,
   loadProjectManifest,
+  readLearnDigest,
   writeContext,
 } from "../../../core/lib/io";
 import { readFileSync, existsSync } from "node:fs";
@@ -35,6 +40,12 @@ import { join, relative, isAbsolute } from "node:path";
 function toRel(root: string, p: string): string {
   const abs = isAbsolute(p) ? p : join(root, p);
   return relative(root, abs).split("\\").join("/");
+}
+
+function isUnderDaily(knowledgeRoot: string, dailyRoot: string, p: string): boolean {
+  const abs = isAbsolute(p) ? p : join(knowledgeRoot, p);
+  const rel = relative(dailyRoot, abs);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
 }
 
 export const InternHarness: Plugin = async ({ directory, worktree }) => {
@@ -114,9 +125,13 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           "BLOCKED: ledger corrupt or unreadable. Re-run intern_index or fix .intern/state/tasks/<id>/LEDGER.md",
         );
       }
+      // Authoring tooling / finished tasks must not gatekeep edits.
+      if (ledger.phase === "done") return;
       const filePath: string | undefined =
         output.args?.filePath ?? output.args?.path;
       if (!filePath) return;
+      // Daily logs are freely editable — they are notes, not scoped task output.
+      if (isUnderDaily(knowledge, daily, filePath)) return;
       let targetStatus: string | undefined;
       try {
         const abs = isAbsolute(filePath) ? filePath : join(root, filePath);
@@ -189,6 +204,16 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           const active = getActive(knowledge);
           const ledger = active ? loadLedger(knowledge, active.taskId) : null;
           const projectFiles = loadProjectManifest(knowledge).map((e) => e.path);
+          const activeTasks = loadActiveTasks(knowledge);
+          const primary = getPrimary(knowledge)?.taskId ?? null;
+          const activeLedgers = activeTasks
+            .map((t) => loadLedger(knowledge, t.taskId))
+            .filter((l): l is NonNullable<typeof l> => !!l);
+          const digest = readLearnDigest(knowledge);
+          const codeKnowledge = digest
+            ? buildDigestSummary(digest) +
+              "\n\n> Full contents: state/LEARN.md"
+            : undefined;
           const pack = buildContextPack({
             generated: nowIso(),
             latestDaily: latest,
@@ -196,6 +221,10 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
             ledger,
             specs: listSpecs(knowledge, plans),
             projectFiles,
+            codeKnowledge,
+            activeTasks,
+            activeLedgers,
+            primary,
           });
           writeContext(knowledge, pack);
           return pack;
@@ -263,6 +292,8 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
             ifMissing: args.ifMissing,
           });
           if (res.files.length === 0) return `spec ${res.name} already complete.`;
+          // Authoring a spec must not be gated by the previous (finished) task.
+          clearActive(knowledge);
           return `created spec ${res.name}: ${res.files
             .map((f) => relative(root, f).split("\\").join("/"))
             .join(", ")}`;
@@ -287,6 +318,25 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           if (relKnow && !relKnow.startsWith("..")) extraIgnore.push(relKnow);
           const res = syncProjectContext(knowledge, target, extraIgnore, paths.scan ?? []);
           return `scan: ${res.count} project AI file(s) cached${res.changed ? " (changed)" : ""}` +
+            (res.changedPaths.length > 0
+              ? `\nchanged:\n${res.changedPaths.map((p) => `  ~ ${p}`).join("\n")}`
+              : "");
+        },
+      }),
+
+      intern_learn: tool({
+        description:
+          "Index project swift source into code-knowledge cache (state/learn-index.json + state/LEARN.md).",
+        args: {
+          force: tool.schema.boolean().optional(),
+        },
+        async execute(args) {
+          if (!args.force) {
+            const { count } = syncCodeKnowledge(knowledge, target, paths.scanIgnore ?? []);
+            return `learn: ${count} swift file(s) indexed. Run with force=true to re-index.`;
+          }
+          const res = syncCodeKnowledge(knowledge, target, paths.scanIgnore ?? []);
+          return `learn: ${res.count} swift file(s) indexed${res.changed ? " (changed)" : ""}` +
             (res.changedPaths.length > 0
               ? `\nchanged:\n${res.changedPaths.map((p) => `  ~ ${p}`).join("\n")}`
               : "");
@@ -385,13 +435,12 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
       }),
 
       intern_status: tool({
-        description: "Show current phase, ledger, and last daily unfinished items.",
-        args: {},
-        async execute() {
-          const active = getActive(knowledge);
-          if (!active) return "No active task.";
-          const ledger = loadLedger(knowledge, active.taskId);
-          if (!ledger) return "Ledger missing.";
+        description: "Show current phase, ledger, and last daily unfinished items. Pass all=true to list every active task.",
+        args: {
+          all: tool.schema.boolean().optional(),
+        },
+        async execute(args) {
+          const activeTasks = loadActiveTasks(knowledge);
           const latest = loadLatestDaily(knowledge, daily);
           let dailySection = "## Last daily\n- (none)";
           if (latest.file) {
@@ -400,6 +449,27 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
             lines.push("", "Unfinished:", formatDailyUnfinished(latest.unfinished));
             dailySection = lines.join("\n");
           }
+          if (args.all || activeTasks.length === 0) {
+            if (activeTasks.length === 0) return "No active tasks.\n\n" + dailySection;
+            const lines: string[] = [];
+            for (const t of activeTasks) {
+              const ledger = loadLedger(knowledge, t.taskId);
+              let d = `- ${t.taskId}${t.primary ? " (focus)" : ""}`;
+              if (ledger) {
+                const step = ledger.activeStep ?? "(none)";
+                const pending = ledger.requiredReads
+                  .filter((r) => r.required !== false && !r.read)
+                  .map((r) => r.path).join(", ");
+                d += ` | phase: ${ledger.phase} | step: ${step} | pending reads: ${pending || "none"}`;
+              }
+              lines.push(d);
+            }
+            return lines.join("\n") + "\n\n" + dailySection;
+          }
+          const active = getActive(knowledge);
+          if (!active) return "No active task.\n\n" + dailySection;
+          const ledger = loadLedger(knowledge, active.taskId);
+          if (!ledger) return "Ledger missing.\n\n" + dailySection;
           return JSON.stringify(ledger, null, 2) + "\n\n" + dailySection;
         },
       }),

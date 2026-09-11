@@ -1,5 +1,5 @@
 import { test, expect } from "bun:test";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { emptyLedger } from "./state";
@@ -13,6 +13,10 @@ import {
   readEvidence,
   setActive,
   getActive,
+  clearActive,
+  loadActiveTasks,
+  getPrimary,
+  setPrimary,
   appendDaily,
   listDaily,
   listSpecs,
@@ -61,6 +65,38 @@ test("active set/get + shape guard", () => {  const k = tmp();
   expect(getActive(k)).toBeNull();
   setActive(k, "t1", "s");
   expect(getActive(k)).toEqual({ taskId: "t1", specRoot: "s" });
+});
+
+test("clearActive removes the active pointer", () => {
+  const k = tmp();
+  setActive(k, "t1", "s");
+  clearActive(k);
+  expect(getActive(k)).toBeNull();
+  clearActive(k); // idempotent, no throw
+});
+
+test("multi-active: setActive adds tasks; primary switches", () => {
+  const k = tmp();
+  setActive(k, "a", "spec/A");
+  setActive(k, "b", "spec/B");
+  const all = loadActiveTasks(k);
+  expect(all.map((t) => t.taskId)).toEqual(["a", "b"]);
+  // last setActive becomes primary
+  expect(getPrimary(k)?.taskId).toBe("b");
+  expect(getActive(k)?.taskId).toBe("b");
+  // switching primary back to a keeps both on the list
+  setPrimary(k, "a");
+  expect(getPrimary(k)?.taskId).toBe("a");
+  expect(loadActiveTasks(k).map((t) => t.taskId)).toEqual(["a", "b"]);
+});
+
+test("multi-active: legacy single active.json migrates to one-entry list", () => {
+  const k = tmp();
+  mkdirSync(join(k, "state"), { recursive: true });
+  writeFileSync(join(k, "state", "active.json"), JSON.stringify({ taskId: "t1", specRoot: "s" }));
+  const all = loadActiveTasks(k);
+  expect(all).toEqual([{ taskId: "t1", specRoot: "s", primary: true }]);
+  expect(getActive(k)?.taskId).toBe("t1");
 });
 
 test("daily append + list", () => {

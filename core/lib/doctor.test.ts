@@ -14,7 +14,7 @@ test("doctor reports a fresh workspace", () => {
   expect(byName["workspace root"].ok).toBe(true);
   expect(byName["knowledge dir"].ok).toBe(false);
   expect(byName["knowledge dir"].level).toBe("warn");
-  expect(byName["active task"].detail).toBe("none");
+  expect(byName["active tasks"].detail).toBe("none");
 });
 
 test("doctor flags a corrupt active ledger", () => {
@@ -24,7 +24,7 @@ test("doctor flags a corrupt active ledger", () => {
   setActive(paths.knowledge, "t1", "spec");
   // no ledger written → corrupt
   const checks = doctorChecks(paths);
-  const active = checks.find((c) => c.name === "active task");
+  const active = checks.find((c) => c.name === "task t1 (focus)");
   expect(active?.level).toBe("error");
 });
 
@@ -42,6 +42,6 @@ test("doctor passes a healthy active task", () => {
     slices: [],
   });
   const checks = doctorChecks(paths);
-  const active = checks.find((c) => c.name === "active task");
+  const active = checks.find((c) => c.name === "task t1 (focus)");
   expect(active?.level).toBe("ok");
 });

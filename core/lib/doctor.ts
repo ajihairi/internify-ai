@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { Paths } from "./config";
-import { getActive, loadLedger, readIndex } from "./io";
+import { loadActiveTasks, loadLedger, readIndex } from "./io";
 
 export interface Check {
   name: string;
@@ -39,20 +39,22 @@ export function doctorChecks(paths: Paths): Check[] {
     existsSync(paths.plans) ? "ok" : "warn",
   );
 
-  const active = getActive(paths.knowledge);
-  if (!active) {
-    add("active task", true, "none", "ok");
+  const all = loadActiveTasks(paths.knowledge);
+  if (all.length === 0) {
+    add("active tasks", true, "none", "ok");
   } else {
-    const ledger = loadLedger(paths.knowledge, active.taskId);
-    if (!ledger) {
-      add("active task", false, `corrupt/missing ledger: ${active.taskId}`, "error");
-    } else {
-      const idx = readIndex(paths.knowledge, active.taskId);
+    for (const t of all) {
+      const ledger = loadLedger(paths.knowledge, t.taskId);
+      if (!ledger) {
+        add(`task ${t.taskId}${t.primary ? " (focus)" : ""}`, false, `corrupt/missing ledger`, "error");
+        continue;
+      }
+      const idx = readIndex(paths.knowledge, t.taskId);
       const pending = ledger.requiredReads.filter((r) => r.required !== false && !r.read).length;
       add(
-        "active task",
+        `task ${t.taskId}${t.primary ? " (focus)" : ""}`,
         !!idx,
-        `${ledger.taskId} · phase=${ledger.phase} · pending reads=${pending}${idx ? "" : " (INDEX missing)"}`,
+        `phase=${ledger.phase} · pending reads=${pending}${idx ? "" : " (INDEX missing)"}`,
         idx ? "ok" : "warn",
       );
     }

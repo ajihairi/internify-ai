@@ -54,15 +54,20 @@ import {
   readEvidence,
   setActive,
   getActive,
+  getPrimary,
+  clearActive,
   appendDaily,
   listDaily,
   listSpecs,
   loadProjectManifest,
+  loadActiveTasks,
+  readLearnDigest,
   writeContext,
 } from "./lib/io";
 import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
 import { findSpecTemplate, newSpec, specNameFromPath } from "./lib/spec";
 import { syncProjectContext } from "./lib/discover";
+import { syncCodeKnowledge, buildDigestSummary } from "./lib/learn";
 import { formatDailyUnfinished, loadLatestDaily } from "./lib/daily";
 
 const root = process.env.INTERNIFY_ROOT
@@ -127,6 +132,19 @@ function cmdScan(): void {
   }
 }
 
+function cmdLearn(): void {
+  const { changed, count, changedPaths } = syncCodeKnowledge(
+    knowledge,
+    target,
+    scanIgnorePaths(),
+  );
+  console.log(`learn: ${count} swift file(s) indexed (${changed ? "changed" : "unchanged"})`);
+  for (const p of changedPaths) console.log(`  ~ ${p}`);
+  if (count === 0) {
+    console.log("  hint: no .swift files found under target");
+  }
+}
+
 function cmdBoot(): void {
   const dailies = listDaily(knowledge, daily);
   const latest = pickLatestDaily(dailies);
@@ -141,6 +159,16 @@ function cmdBoot(): void {
   const active = getActive(knowledge);
   const ledger = active ? loadLedger(knowledge, active.taskId) : null;
   const projectFiles = scanProjectFiles(true);
+  const activeTasks = loadActiveTasks(knowledge);
+  const primary = getPrimary(knowledge)?.taskId ?? null;
+  const activeLedgers = activeTasks
+    .map((t) => loadLedger(knowledge, t.taskId))
+    .filter((l): l is NonNullable<typeof l> => !!l);
+  const digest = readLearnDigest(knowledge);
+  const codeKnowledge = digest
+    ? buildDigestSummary(digest) +
+      "\n\n> Full contents: state/LEARN.md"
+    : undefined;
   const pack = buildContextPack({
     generated: nowIso(),
     latestDaily: latest,
@@ -148,6 +176,10 @@ function cmdBoot(): void {
     ledger,
     specs: listSpecs(knowledge, plans),
     projectFiles,
+    codeKnowledge,
+    activeTasks,
+    activeLedgers,
+    primary,
   });
   writeContext(knowledge, pack);
   console.log(pack);
@@ -282,9 +314,49 @@ function statusDailySection(): string {
   return lines.join("\n");
 }
 
-function cmdStatus(): void {
+function cmdStatus(argv: string[] = []): void {
+  const f = flags(argv);
+  const all = f.all === "true" || f.all === "1" || argv.includes("--all");
+  const activeTasks = loadActiveTasks(knowledge);
+  if (all) {
+    if (activeTasks.length === 0) {
+      console.log("no active tasks.");
+    } else {
+      for (const t of activeTasks) {
+        const ledger = loadLedger(knowledge, t.taskId);
+        let d = `- ${t.taskId}${t.primary ? " (focus)" : ""}`;
+        if (ledger) {
+          const step = ledger.activeStep ?? "(none)";
+          const pending = ledger.requiredReads
+            .filter((r) => r.required !== false && !r.read)
+            .map((r) => r.path).join(", ");
+          d += ` | phase=${ledger.phase} | step=${step} | pending reads=${pending || "none"}`;
+        }
+        console.log(d);
+      }
+    }
+    console.log("");
+    console.log(statusDailySection());
+    return;
+  }
   const active = getActive(knowledge);
-  if (!active) fail("no active task.");
+  if (!active) {
+    if (activeTasks.length === 0) {
+      console.log("no active task. run: internify index <spec-folder>");
+      console.log("");
+      console.log(statusDailySection());
+      return;
+    }
+    for (const t of activeTasks) {
+      const ledger = loadLedger(knowledge, t.taskId);
+      let d = `- ${t.taskId}${t.primary ? " (focus)" : ""}`;
+      if (ledger) d += ` | phase=${ledger.phase} | step=${ledger.activeStep ?? "(none)"}`;
+      console.log(d);
+    }
+    console.log("");
+    console.log(statusDailySection());
+    return;
+  }
   const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt.");
   console.log(JSON.stringify(ledger, null, 2));
@@ -927,6 +999,8 @@ function cmdSpecNew(nameArg: string, f: Record<string, string>): void {
       ifMissing: f["if-missing"] === "true",
     });
     const rel = relative(root, res.dir).split("\\").join("/");
+    // Authoring a spec must not be gated by a previous (finished) task.
+    clearActive(knowledge);
     console.log(
       res.files.length === 0 ? `spec ${res.name} already complete` : `created spec ${res.name}`,
     );
@@ -973,6 +1047,7 @@ Commands:
                                     scaffold a spec folder from the template
   spec list                         list spec folders under the plans dir
   scan                              collect project AI files into the state cache
+  learn                             index project swift source -> code knowledge cache
   boot                              collect session context -> .intern/state/CONTEXT.md
   index <spec-folder>               build INDEX, start/resume a task
   read <path>                       print a file and mark a required read as done
@@ -980,7 +1055,7 @@ Commands:
   step <id> <anchor>                declare the active step
   evidence <step> --claim <c> --proof <p> --result pass|fail
   close                             validate evidence, append daily, finish
-  status                            show phase + ledger
+  status                            show phase + ledger (--all lists every active task)
   override <reason>                 one-shot recorded gate bypass
   gate edit <file>                  exit 1 if the file is blocked
   gate bash "<command>"             exit 1 if the bash write is blocked
@@ -1029,6 +1104,9 @@ switch (cmd) {
   case "scan":
     cmdScan();
     break;
+  case "learn":
+    cmdLearn();
+    break;
   case "boot":
     cmdBoot();
     break;
@@ -1051,7 +1129,7 @@ switch (cmd) {
     cmdClose();
     break;
   case "status":
-    cmdStatus();
+    cmdStatus(rest);
     break;
   case "override":
     cmdOverride(rest.join(" "));

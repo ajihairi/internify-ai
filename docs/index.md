@@ -62,10 +62,13 @@ internify init --tool opencode     # or: --tool claude | none
 
 ## Where to go next
 
+- [User guide](user-guide.md) — beginner-to-advanced: setup, daily workflow, multi-task, edge cases
 - [Install](getting-started/install.md)
 - [Quick start](getting-started/quickstart.md)
 - [CLI reference](cli.md)
 - [Providers](providers.md)
 - [Workspace & config](workspace.md)
 - [Project context (scan)](scan.md)
+- [Code knowledge (learn)](learn.md)
+- [Multi-active tasks](multitask.md)
 - [Contract](contract.md)

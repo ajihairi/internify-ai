@@ -4,6 +4,7 @@ import {
   readFileSync,
   readdirSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { join, relative } from "node:path";
@@ -83,28 +84,85 @@ export function activePath(knowledgeRoot: string) {
   return join(knowledgeRoot, "state", "active.json");
 }
 
-export function setActive(knowledgeRoot: string, taskId: string, specRoot: string) {
+export interface ActiveTask {
+  taskId: string;
+  specRoot: string;
+  primary?: boolean;
+}
+
+export function loadActiveTasks(knowledgeRoot: string): ActiveTask[] {
+  const p = activePath(knowledgeRoot);
+  if (!existsSync(p)) return [];
+  try {
+    const obj = JSON.parse(readFileSync(p, "utf8")) as unknown;
+    if (Array.isArray(obj)) {
+      return (obj as unknown[]).filter(
+        (x): x is ActiveTask =>
+          typeof x === "object" && x !== null &&
+          typeof (x as Record<string, unknown>).taskId === "string",
+      );
+    }
+    // Legacy single-object format -> migrate to a one-entry list.
+    if (typeof obj === "object" && obj !== null) {
+      const a = obj as Record<string, unknown>;
+      if (typeof a.taskId === "string" && typeof a.specRoot === "string") {
+        const entry: ActiveTask = { taskId: a.taskId, specRoot: a.specRoot, primary: true };
+        saveActiveTasks(knowledgeRoot, [entry]);
+        return [entry];
+      }
+    }
+  } catch {
+    /* malformed → treat as empty */
+  }
+  return [];
+}
+
+export function saveActiveTasks(knowledgeRoot: string, tasks: ActiveTask[]) {
   ensureDir(join(knowledgeRoot, "state"));
-  writeFileSync(
-    activePath(knowledgeRoot),
-    JSON.stringify({ taskId, specRoot }, null, 2) + "\n",
-  );
+  writeFileSync(activePath(knowledgeRoot), JSON.stringify(tasks, null, 2) + "\n");
+}
+
+export function getPrimary(knowledgeRoot: string): ActiveTask | null {
+  const all = loadActiveTasks(knowledgeRoot);
+  return all.find((t) => t.primary) ?? null;
+}
+
+export function setPrimary(knowledgeRoot: string, taskId: string): void {
+  const all = loadActiveTasks(knowledgeRoot);
+  const existing = all.find((t) => t.taskId === taskId);
+  if (!existing) return;
+  const next = all.map((t) => ({ ...t, primary: t.taskId === taskId }));
+  saveActiveTasks(knowledgeRoot, next);
+}
+
+export function clearActive(knowledgeRoot: string): void {
+  try {
+    if (existsSync(activePath(knowledgeRoot))) {
+      unlinkSync(activePath(knowledgeRoot));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+export function setActive(knowledgeRoot: string, taskId: string, specRoot: string): void {
+  const all = loadActiveTasks(knowledgeRoot);
+  const existing = all.find((t) => t.taskId === taskId);
+  if (existing) {
+    setPrimary(knowledgeRoot, taskId);
+    return;
+  }
+  const next = all.map((t) => ({ ...t, primary: false }));
+  next.push({ taskId, specRoot, primary: true });
+  saveActiveTasks(knowledgeRoot, next);
 }
 
 export function getActive(
   knowledgeRoot: string,
 ): { taskId: string; specRoot: string } | null {
-  const p = activePath(knowledgeRoot);
-  if (!existsSync(p)) return null;
-  try {
-    const obj = JSON.parse(readFileSync(p, "utf8")) as unknown;
-    if (typeof obj !== "object" || obj === null) return null;
-    const a = obj as Record<string, unknown>;
-    if (typeof a.taskId !== "string" || typeof a.specRoot !== "string") return null;
-    return { taskId: a.taskId, specRoot: a.specRoot };
-  } catch {
-    return null;
-  }
+  const primary = getPrimary(knowledgeRoot);
+  if (!primary) return null;
+  return { taskId: primary.taskId, specRoot: primary.specRoot };
 }
 
 export function appendDaily(knowledgeRoot: string, text: string, dailyRoot?: string): string {
@@ -190,4 +248,60 @@ export function readProjectContext(knowledgeRoot: string): string | null {
 export function writeProjectContext(knowledgeRoot: string, text: string) {
   ensureDir(projectStateDir(knowledgeRoot));
   writeFileSync(projectContextPath(knowledgeRoot), text);
+}
+
+export function learnManifestPath(knowledgeRoot: string): string {
+  return join(projectStateDir(knowledgeRoot), "learn-files.json");
+}
+
+export function learnIndexPath(knowledgeRoot: string): string {
+  return join(projectStateDir(knowledgeRoot), "learn-index.json");
+}
+
+export function learnDigestPath(knowledgeRoot: string): string {
+  return join(projectStateDir(knowledgeRoot), "LEARN.md");
+}
+
+export function loadLearnManifest(knowledgeRoot: string): ManifestEntry[] {
+  const p = learnManifestPath(knowledgeRoot);
+  if (!existsSync(p)) return [];
+  try {
+    const obj = JSON.parse(readFileSync(p, "utf8")) as unknown;
+    if (Array.isArray(obj)) return obj as ManifestEntry[];
+  } catch {
+    /* malformed → treat as empty */
+  }
+  return [];
+}
+
+export function saveLearnManifest(knowledgeRoot: string, entries: ManifestEntry[]) {
+  ensureDir(projectStateDir(knowledgeRoot));
+  writeFileSync(learnManifestPath(knowledgeRoot), JSON.stringify(entries, null, 2) + "\n");
+}
+
+export function readLearnIndex(knowledgeRoot: string): unknown[] {
+  const p = learnIndexPath(knowledgeRoot);
+  if (!existsSync(p)) return [];
+  try {
+    const obj = JSON.parse(readFileSync(p, "utf8")) as unknown;
+    if (Array.isArray(obj)) return obj as unknown[];
+  } catch {
+    return [];
+  }
+  return [];
+}
+
+export function writeLearnIndex(knowledgeRoot: string, entries: unknown[]) {
+  ensureDir(projectStateDir(knowledgeRoot));
+  writeFileSync(learnIndexPath(knowledgeRoot), JSON.stringify(entries, null, 2) + "\n");
+}
+
+export function readLearnDigest(knowledgeRoot: string): string | null {
+  const p = learnDigestPath(knowledgeRoot);
+  return existsSync(p) ? readFileSync(p, "utf8") : null;
+}
+
+export function writeLearnDigest(knowledgeRoot: string, text: string) {
+  ensureDir(projectStateDir(knowledgeRoot));
+  writeFileSync(learnDigestPath(knowledgeRoot), text);
 }

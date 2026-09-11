@@ -6,6 +6,54 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-11
+
+### Added
+
+- **Multi-active tasks.** Replace the single `active.json` pointer with an
+  **active-task list** + a **primary focus**. `active.json` is now an array;
+  the legacy single-object format migrates to a one-entry list on read.
+  - `io` helpers: `ActiveTask`, `loadActiveTasks`, `saveActiveTasks`,
+    `getPrimary`, `setPrimary` (plus existing `setActive`/`getActive`/`clearActive`
+    now list-aware / resolve to the primary).
+  - `boot`/`CONTEXT.md` gains `## Active tasks` (each: phase, step, pending
+    reads) + `## Focus` (primary).
+  - `internify status --all` / `intern_status all=true` list every active task
+    with compact progress instead of a single ledger.
+  - Gates resolve against the **primary** task only — a done/idle task on the
+    list never gatekeeps the active one.
+  - `doctor` iterates the active list.
+  - Switching focus via `intern_index` restores the task's own LEDGER — no lost
+    context (the "parallel AI intern" model).
+- **User guide** (`docs/user-guide.md`) — comprehensive beginner-to-advanced
+  documentation covering setup, daily workflow, multi-task parallel, bugfix +
+  feature simultaneously, priority/focus switching, edge cases, troubleshooting.
+- Updated command files (`/internify.status`, `/internify.work`, `/internify.spec`,
+  `/internify.boot`, `/internify.review`, `/internify.help`) to reflect
+  multi-task features.
+
+## [0.15.0] - 2026-09-11
+
+### Changed
+
+- **Authoring is un-gated.** `internify spec new` / `intern_spec` now clear the
+  active task, so writing a spec is never blocked by the previous (finished)
+  task. `canEdit` allows edits on `done` tasks.
+- **Daily logs are freely editable** — `daily/*.md` bypass the scope gate, so
+  meeting notes and post-work logs no longer need `intern_override`.
+- New `io.clearActive` helper (+ test).
+
+## [0.14.0] - 2026-09-11
+
+### Added
+
+- `internify learn` / `intern_learn` — index project Swift source into a code
+  knowledge base (`state/learn-files.json` manifest, `state/learn-index.json`
+  symbol index, `state/LEARN.md` digest). Manual-only (no boot auto-run),
+  independent of scan, lazy diff by size/mtime. `boot` injects a compact
+  **Code knowledge** summary into `CONTEXT.md`. Tier-light (line/regex,
+  Swift-only); docs page `docs/learn.md`.
+
 ## [0.13.0] - 2026-09-11
 
 ### Added

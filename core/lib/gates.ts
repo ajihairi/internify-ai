@@ -38,6 +38,8 @@ export function canEdit(
   opts: EditOptions = {},
 ): Decision {
   if (ledger.forceAllow) return { ok: true };
+  // Finished tasks let their files stay editable (authoring/tweaks after close).
+  if (ledger.phase === "done") return { ok: true };
   if (ledger.phase !== "planned" && ledger.phase !== "acting") {
     return {
       ok: false,

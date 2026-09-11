@@ -39,6 +39,7 @@ theme:
 
 nav:
   - Home: index.md
+  - User guide: user-guide.md
   - Getting started:
       - Install: getting-started/install.md
       - Quick start: getting-started/quickstart.md
@@ -49,6 +50,8 @@ nav:
   - Workspace & config: workspace.md
   - Specs: spec.md
   - Project context (scan): scan.md
+  - Code knowledge (learn): learn.md
+  - Multi-active tasks: multitask.md
   - Contract: contract.md
   - Architecture: DESIGN.md
   - Structure profiles: structure.md
