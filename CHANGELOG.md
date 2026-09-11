@@ -6,6 +6,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-09-11
+
+### Added
+
+- `internify status` / `intern_status` now include a **Last daily** section: the
+  latest daily file, its summary, and unfinished items (open `[ ]` checkboxes,
+  todo/backlog rows without ✅, "Next steps / Langkah berikutnya" items).
+
 ## [0.11.0] - 2026-09-11
 
 ### Added

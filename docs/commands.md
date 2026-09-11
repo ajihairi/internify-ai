@@ -20,7 +20,7 @@ There are three kinds of "command" in internify — don't mix them up:
 | `/internify.work <spec-folder>` | Start/resume a task — scaffolds the spec if missing, then runs the loop |
 | `/internify.spec <Name>` | Scaffold a new spec, then author its SPECmd/Plan/Task |
 | `/internify.boot` | Collect/refresh the session context from disk |
-| `/internify.status` | Show the current phase, active step, and pending reads |
+| `/internify.status` | Show the current phase, active step, pending reads, and last daily's unfinished items |
 | `/internify.review` | Review the active task: done / pending / risks |
 | `/internify.daily` | Summarize today's work into the daily log |
 | `/internify.monthly` | Build a monthly timesheet from the daily logs |
@@ -77,7 +77,7 @@ Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 | `internify step <id> <anchor>` | Declare the active step |
 | `internify evidence <step> --claim … --proof … --result pass` | Record proof |
 | `internify close` | Validate evidence, append daily, finish |
-| `internify status` | Show phase + ledger |
+| `internify status` | Show phase + ledger + last daily's unfinished items |
 | `internify override <reason>` | One-shot recorded gate bypass |
 | `internify gate edit <file>` | Exit 1 if the file is blocked |
 | `internify gate bash "<cmd>"` | Exit 1 if a shell write is blocked |

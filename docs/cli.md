@@ -22,7 +22,7 @@ to `<root>/.intern`; override via `<root>/internify.json`.
 | `internify step <id> <anchor>` | Declare the active step |
 | `internify evidence <step> --claim <c> --proof <p> --result pass\|fail` | Record proof for a step |
 | `internify close` | Validate evidence, append the daily log, finish |
-| `internify status` | Show phase + ledger |
+| `internify status` | Show phase + ledger + last daily's unfinished items |
 | `internify override <reason>` | One-shot recorded gate bypass |
 | `internify gate edit <file>` | Exit 1 if the file is blocked |
 | `internify gate bash "<command>"` | Exit 1 if a shell write is blocked |

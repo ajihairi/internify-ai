@@ -13,6 +13,7 @@ import {
 } from "../../../core/lib/boot";
 import { findSpecTemplate, newSpec, specNameFromPath } from "../../../core/lib/spec";
 import { syncProjectContext } from "../../../core/lib/discover";
+import { formatDailyUnfinished, loadLatestDaily } from "../../../core/lib/daily";
 import {
   loadLedger,
   saveLedger,
@@ -384,14 +385,22 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
       }),
 
       intern_status: tool({
-        description: "Show current phase and ledger summary.",
+        description: "Show current phase, ledger, and last daily unfinished items.",
         args: {},
         async execute() {
           const active = getActive(knowledge);
           if (!active) return "No active task.";
           const ledger = loadLedger(knowledge, active.taskId);
           if (!ledger) return "Ledger missing.";
-          return JSON.stringify(ledger, null, 2);
+          const latest = loadLatestDaily(knowledge, daily);
+          let dailySection = "## Last daily\n- (none)";
+          if (latest.file) {
+            const lines = [`## Last daily: ${latest.file}`];
+            if (latest.summary) lines.push(`- summary: ${latest.summary}`);
+            lines.push("", "Unfinished:", formatDailyUnfinished(latest.unfinished));
+            dailySection = lines.join("\n");
+          }
+          return JSON.stringify(ledger, null, 2) + "\n\n" + dailySection;
         },
       }),
 

@@ -63,6 +63,7 @@ import {
 import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
 import { findSpecTemplate, newSpec, specNameFromPath } from "./lib/spec";
 import { syncProjectContext } from "./lib/discover";
+import { formatDailyUnfinished, loadLatestDaily } from "./lib/daily";
 
 const root = process.env.INTERNIFY_ROOT
   ? resolve(process.env.INTERNIFY_ROOT)
@@ -272,12 +273,23 @@ function cmdClose(): void {
   console.log(`Task ${active.taskId} closed. Daily: ${dailyName}`);
 }
 
+function statusDailySection(): string {
+  const latest = loadLatestDaily(knowledge, daily);
+  if (!latest.file) return "## Last daily\n- (none)";
+  const lines = [`## Last daily: ${latest.file}`];
+  if (latest.summary) lines.push(`- summary: ${latest.summary}`);
+  lines.push("", "Unfinished:", formatDailyUnfinished(latest.unfinished));
+  return lines.join("\n");
+}
+
 function cmdStatus(): void {
   const active = getActive(knowledge);
   if (!active) fail("no active task.");
   const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt.");
   console.log(JSON.stringify(ledger, null, 2));
+  console.log("");
+  console.log(statusDailySection());
 }
 
 function cmdOverride(reason: string): void {
