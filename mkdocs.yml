@@ -39,6 +39,7 @@ theme:
 
 nav:
   - Home: index.md
+  - Why internify?: why.md
   - User guide: user-guide.md
   - Getting started:
       - Install: getting-started/install.md

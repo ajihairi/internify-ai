@@ -62,6 +62,7 @@ internify init --tool opencode     # or: --tool claude | none
 
 ## Where to go next
 
+- [Why internify?](why.md) — positioning, comparison with other tools, terminology
 - [User guide](user-guide.md) — beginner-to-advanced: setup, daily workflow, multi-task, edge cases
 - [Install](getting-started/install.md)
 - [Quick start](getting-started/quickstart.md)
