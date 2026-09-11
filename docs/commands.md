@@ -20,7 +20,8 @@ There are three kinds of "command" in internify — don't mix them up:
 | `/internify.work <spec-folder>` | Start/resume a task — scaffolds the spec if missing, then runs the loop. Adds the spec to the active list and sets it as focus. |
 | `/internify.spec <Name>` | Scaffold a new spec, then author its SPECmd/Plan/Task. Clears any previous active task so authoring is never blocked. |
 | `/internify.boot` | Collect/refresh the session context from disk. Includes `## Active tasks` (all) and `## Focus` (primary). |
-| `/internify.status` | Show the current focus task's phase, active step, pending reads, and last daily's unfinished items. Pass `--all` to list every active task. |
+| `/internify.status` | Show the current focus task's phase, active step, pending reads, and last daily's unfinished items |
+| `/internify.allstatus` | List every active task with compact progress (multi-task parallel) |
 | `/internify.learn` | Index project Swift source into code knowledge cache (manual-only, never runs at boot). |
 | `/internify.review` | Review the active task: done / pending / risks |
 | `/internify.daily` | Summarize today's work into the daily log |
@@ -80,7 +81,8 @@ Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 | `internify step <id> <anchor>` | Declare the active step |
 | `internify evidence <step> --claim … --proof … --result pass` | Record proof |
 | `internify close` | Validate evidence, append daily, finish |
-| `internify status [--all]` | Show phase + ledger + last daily's unfinished items (`--all` lists every active task) |
+| `internify status` | Show focus task's phase + ledger + last daily's unfinished items |
+| `internify status --all` | List every active task with compact progress |
 | `internify override <reason>` | One-shot recorded gate bypass |
 | `internify gate edit <file>` | Exit 1 if the file is blocked |
 | `internify gate bash "<cmd>"` | Exit 1 if a shell write is blocked |

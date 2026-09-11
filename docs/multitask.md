@@ -27,7 +27,7 @@ Replace the old single `active.json` pointer with an **active-task list**.
 |---------|--------------|
 | `internify index <spec>` | Add spec to the active list, set as primary |
 | `internify index <spec2>` | Add spec2, make it primary; spec1 stays listed |
-| `internify status --all` | List every active task + compact progress |
+| `internify allstatus` | List every active task + compact progress |
 | `intern_status` (tool) `all=true` | Same inside the agent |
 | `internify boot` | `CONTEXT.md`: `## Active tasks` (all) + `## Focus` (primary) |
 

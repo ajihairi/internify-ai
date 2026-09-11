@@ -151,7 +151,7 @@ You can work on **multiple specs at once**. Each gets its own progress box. The 
 /internify.work FeatureB
 
 # Check all active tasks
-/internify.status --all
+/internify.allstatus
 ```
 
 Output:
@@ -188,7 +188,7 @@ Real scenario: you're implementing FeatureA, and a bug report comes in.
 /internify.work BugFixToggle
 
 # 4. Check status — both are listed
-/internify.status --all
+/internify.allstatus
 # - FeatureA | phase=acting | step=S3 | pending reads=none
 # - BugFixToggle (focus) | phase=planned | step=S1 | pending reads=2 files
 
@@ -221,8 +221,8 @@ There is no explicit "priority" setting — the focus IS the priority. The agent
 | `/internify.boot` | Load session context from disk |
 | `/internify.work <spec>` | Start/resume work on a spec (sets focus) |
 | `/internify.spec <name>` | Scaffold a new spec folder + author content |
-| `/internify.status` | Show current focus task + progress |
-| `/internify.status --all` | List ALL active tasks + progress |
+| `/internify.status` | Show focus task + progress |
+| `/internify.allstatus` | List ALL active tasks + progress |
 | `/internify.review` | Review done/pending/risks (no edits) |
 | `/internify.daily` | Summarize today's work to daily log |
 | `/internify.monthly` | Build monthly timesheet |
@@ -237,7 +237,8 @@ internify read <path>
 internify step <id> <anchor>
 internify evidence <step> --claim "..." --proof "..." --result pass
 internify close
-internify status [--all]
+internify status
+internify allstatus
 internify override <reason>    # escape hatch (use sparingly)
 ```
 
@@ -268,7 +269,7 @@ The scope gate should prevent this. If it happens:
 
 Boot loads context from disk. If the agent seems lost:
 1. Run `internify.boot` — reloads everything
-2. Check `internify.status --all` — see all active tasks
+2. Check `internify.allstatus` — see all active tasks
 3. The agent should remember via CONTEXT.md
 
 ### "I need to edit a file outside the spec"
@@ -297,8 +298,8 @@ Daily logs are just markdown notes. They don't affect gates. You can edit them f
 | "BLOCKED: no active step" | Call `internify.work` or declare a step |
 | "BLOCKED: file outside task scope" | Add file to spec references, or use `internify.override` |
 | Agent forgets context between sessions | Run `internify.boot` — loads context from disk |
-| Two tasks seem to conflict | They shouldn't — check focus with `internify.status --all` |
-| Want to see all progress | `internify.status --all` or `intern_status all=true` |
+| Two tasks seem to conflict | They shouldn't — check focus with `internify.allstatus` |
+| Want to see all progress | `internify.allstatus` |
 | Daily log not updating | `internify.daily` — summarises and appends |
 | New session, no context | Run `internify.boot` — reads rules, active tasks, daily |
 

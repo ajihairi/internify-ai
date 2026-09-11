@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-11
+
+### Changed
+
+- **Split `status --all` into two commands.** `/internify.status` now shows
+  only the focus task. `/internify.allstatus` lists every active task with
+  compact progress. One command = one action; no flag parsing ambiguity.
+- Updated all command files, docs, and user guide to use `allstatus`.
+
 ## [0.16.0] - 2026-09-11
 
 ### Added
