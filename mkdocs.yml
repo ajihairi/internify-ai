@@ -48,6 +48,7 @@ nav:
   - Providers: providers.md
   - Workspace & config: workspace.md
   - Specs: spec.md
+  - Project context (scan): scan.md
   - Contract: contract.md
   - Architecture: DESIGN.md
   - Structure profiles: structure.md

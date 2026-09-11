@@ -33,6 +33,7 @@ to `<root>/.intern`; override via `<root>/internify.json`.
 |----------|--------|
 | `INTERNIFY_ROOT` | Workspace root (default: cwd) |
 | `INTERN_HARNESS=off` | Disable gating (CLI still works) |
+| `INTERN_SCAN=off` | Disable the automatic project scan at boot ([scan](scan.md)) |
 
 ## Examples
 

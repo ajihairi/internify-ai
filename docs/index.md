@@ -67,4 +67,5 @@ internify init --tool opencode     # or: --tool claude | none
 - [CLI reference](cli.md)
 - [Providers](providers.md)
 - [Workspace & config](workspace.md)
+- [Project context (scan)](scan.md)
 - [Contract](contract.md)

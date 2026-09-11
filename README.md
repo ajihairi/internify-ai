@@ -359,6 +359,12 @@ Scaffold a new one with `internify spec new <Name>` (CLI) or `/internify.spec <N
 not there yet, it runs `internify spec new` (via `intern_spec`) before indexing.
 Use `--if-missing` to fill only the absent files without touching existing ones.
 
+## Project context (scan)
+
+internify can also collect the AI-relevant files **inside your project code**
+(`AGENTS.md`, `docs/`, `skills/`, ...), cache them, and inject them into every
+session's context. See [Project context (scan)](./docs/scan.md).
+
 ## Tools
 
 Registered by the opencode adapter:

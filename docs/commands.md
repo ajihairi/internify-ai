@@ -69,7 +69,7 @@ Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 | `internify init [dir] [--tool …] [--profile …] [--skills …]` | Scaffold + wire a provider |
 | `internify spec new <Name> [--role <role>] [--if-missing]` | Scaffold a spec folder from the template |
 | `internify spec list` | List spec folders under the plans directory |
-| `internify scan` | Cache project AI files into `state/` |
+| `internify scan` | Cache project AI files into `state/` ([scan](scan.md)) |
 | `internify boot` | Collect session context → `state/CONTEXT.md` |
 | `internify index <spec-folder>` | Build `INDEX.md`, start/resume a task |
 | `internify read <path>` | Print a file and mark a required read done |
