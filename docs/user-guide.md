@@ -278,6 +278,49 @@ If the file is in scope (listed in the spec's references), you're fine. If not:
 - Add the file reference to SPECmd.md, then re-index
 - Or use `internify.override <reason>` as an escape hatch
 
+### "I need to rework a done spec"
+
+Use `internify rework <spec>`. It resets the phase to orient, increments the revision counter, and re-marks all required reads as unread. Old evidence is preserved but tagged under the previous revision.
+
+```
+internify rework .intern/plans/FeatureX    # done → orient, revision++
+internify index .intern/plans/FeatureX     # re-read files
+```
+
+### "I need to add a file to scope mid-task"
+
+Use `internify scope-add <spec> <path>`. It appends the file to the task scope without re-indexing.
+
+```
+internify scope-add .intern/plans/FeatureX src/NewFile.swift
+```
+
+### "Anchors are stale after editing a file"
+
+Use `internify anchor-refresh <spec>`. It re-checks anchor statuses without resetting reads or steps.
+
+```
+internify anchor-refresh .intern/plans/FeatureX
+```
+
+### "I need to override gates multiple times"
+
+`override` now persists until `close` or `override clear`. You don't need to re-override after each edit.
+
+```
+internify override "need to edit 3 files in sequence"
+# ... edit files ...
+internify override clear   # or just close the task
+```
+
+### "I want to debug gates without being blocked"
+
+Set `INTERN_HARNESS=warn`. Gates still run but log warnings instead of blocking.
+
+```bash
+INTERN_HARNESS=warn internify work .intern/plans/FeatureX
+```
+
 ### "Two tasks are conflicting"
 
 Tasks are independent. Each has its own scope, steps, evidence. The only shared thing is the focus — which one you're editing right now. Switching focus doesn't affect other tasks.
@@ -297,11 +340,13 @@ Daily logs are just markdown notes. They don't affect gates. You can edit them f
 | "BLOCKED: finish the required reads first" | Run `internify.work <spec>` first, then read the listed files |
 | "BLOCKED: no active step" | Call `internify.work` or declare a step |
 | "BLOCKED: file outside task scope" | Add file to spec references, or use `internify.override` |
+| "BLOCKED: anchor is stale" | Run `internify anchor-refresh <spec>` to refresh anchors |
 | Agent forgets context between sessions | Run `internify.boot` — loads context from disk |
 | Two tasks seem to conflict | They shouldn't — check focus with `internify.allstatus` |
 | Want to see all progress | `internify.allstatus` |
 | Daily log not updating | `internify.daily` — summarises and appends |
 | New session, no context | Run `internify.boot` — reads rules, active tasks, daily |
+| Need to rework a done spec | `internify rework <spec>` → re-read → re-step → re-edit |
 
 ---
 

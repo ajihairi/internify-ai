@@ -50,6 +50,7 @@ function isUnderDaily(knowledgeRoot: string, dailyRoot: string, p: string): bool
 
 export const InternHarness: Plugin = async ({ directory, worktree }) => {
   if (process.env.INTERN_HARNESS === "off") return {};
+  const harnessMode = process.env.INTERN_HARNESS === "warn" ? "warn" : "on";
   const root = worktree || directory;
   const paths = loadPaths(root);
   const knowledge = paths.knowledge;
@@ -105,6 +106,10 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
         if (!active) return;
         const ledger = loadLedger(knowledge, active.taskId);
         if (!ledger) {
+          if (harnessMode === "warn") {
+            console.warn("HARNESS WARN: ledger corrupt or unreadable");
+            return;
+          }
           throw new Error(
             "BLOCKED: ledger corrupt or unreadable. Re-run intern_index or fix .intern/state/tasks/<id>/LEDGER.md",
           );
@@ -112,7 +117,13 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
         const command: unknown = output.args?.command;
         if (typeof command === "string") {
           const d = canBash(root, ledger, command);
-          if (!d.ok) throw new Error(d.reason);
+          if (!d.ok) {
+            if (harnessMode === "warn") {
+              console.warn(`HARNESS WARN: ${d.reason}`);
+              return;
+            }
+            throw new Error(d.reason);
+          }
         }
         return;
       }
@@ -121,6 +132,10 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
       if (!active) return;
       const ledger = loadLedger(knowledge, active.taskId);
       if (!ledger) {
+        if (harnessMode === "warn") {
+          console.warn("HARNESS WARN: ledger corrupt or unreadable");
+          return;
+        }
         throw new Error(
           "BLOCKED: ledger corrupt or unreadable. Re-run intern_index or fix .intern/state/tasks/<id>/LEDGER.md",
         );
@@ -140,12 +155,14 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
         /* ignore */
       }
       const d = canEdit(root, ledger, filePath, { targetStatus });
-      if (!d.ok) throw new Error(d.reason);
-      let dirty = false;
-      if (ledger.forceAllow) {
-        ledger.forceAllow = false;
-        dirty = true;
+      if (!d.ok) {
+        if (harnessMode === "warn") {
+          console.warn(`HARNESS WARN: ${d.reason}`);
+          return;
+        }
+        throw new Error(d.reason);
       }
+      let dirty = false;
       if (ledger.phase === "planned") {
         ledger.phase = "acting";
         dirty = true;
@@ -422,6 +439,7 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           const dailyName = appendDaily(
             knowledge,
             `### internify task closed — ${active.taskId} ${nowIso()}\n` +
+              `- rev: ${ledger.revision || 1}\n` +
               `- steps: ${ledger.steps.map((s) => s.id).join(", ")}\n` +
               `- evidence: .intern/state/tasks/${active.taskId}/EVIDENCE.md`,
             daily,
@@ -492,6 +510,118 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
             `## OVERRIDE ${nowIso()}\nreason: ${args.reason}`,
           );
           return "Override recorded.";
+        },
+      }),
+
+      intern_override_clear: tool({
+        description: "Clear the forceAllow bypass manually.",
+        args: {},
+        async execute() {
+          const active = getActive(knowledge);
+          if (!active) return "No active task.";
+          const ledger = loadLedger(knowledge, active.taskId);
+          if (!ledger) return "Ledger missing.";
+          ledger.forceAllow = false;
+          ledger.updated = nowIso();
+          saveLedger(knowledge, ledger);
+          return "Override cleared.";
+        },
+      }),
+
+      intern_rework: tool({
+        description: "Rework a done spec — resets phase to orient, increments revision.",
+        args: {
+          specRoot: tool.schema.string().describe("Spec folder path."),
+        },
+        async execute(args) {
+          const specRel = toRel(root, args.specRoot.replace(/\/+$/, ""));
+          if (!specRel || specRel.startsWith("..")) {
+            throw new Error(`specRoot outside repo: ${args.specRoot}`);
+          }
+          const taskId = slug(specRel);
+          const ledger = loadLedger(knowledge, taskId);
+          if (!ledger) throw new Error("Ledger missing. Run intern_index first.");
+          if (ledger.phase !== "done") {
+            throw new Error(`Phase is "${ledger.phase}", must be "done" to rework.`);
+          }
+          ledger.revision = (ledger.revision || 0) + 1;
+          ledger.phase = "orient";
+          ledger.activeStep = null;
+          for (const r of ledger.requiredReads) r.read = false;
+          for (const s of ledger.steps) {
+            s.done = false;
+            s.revision = ledger.revision;
+          }
+          ledger.updated = nowIso();
+          saveLedger(knowledge, ledger);
+          return `Revision ${ledger.revision}. Phase: orient. Re-read required files.`;
+        },
+      }),
+
+      intern_scopeAdd: tool({
+        description: "Add a file to the task scope without re-indexing.",
+        args: {
+          specRoot: tool.schema.string().describe("Spec folder path."),
+          path: tool.schema.string().describe("File path to add."),
+        },
+        async execute(args) {
+          const specRel = toRel(root, args.specRoot.replace(/\/+$/, ""));
+          if (!specRel || specRel.startsWith("..")) {
+            throw new Error(`specRoot outside repo: ${args.specRoot}`);
+          }
+          const taskId = slug(specRel);
+          const ledger = loadLedger(knowledge, taskId);
+          if (!ledger) throw new Error("Ledger missing. Run intern_index first.");
+          if (ledger.phase !== "planned" && ledger.phase !== "acting" && ledger.phase !== "done") {
+            throw new Error(`Phase "${ledger.phase}" does not support scope-add (need planned/acting/done).`);
+          }
+          const fileRel = toRel(root, args.path);
+          if (!fileRel || fileRel.startsWith("..")) {
+            throw new Error(`Path outside repo: ${args.path}`);
+          }
+          if (ledger.scope.includes(fileRel)) {
+            return `${fileRel} already in scope.`;
+          }
+          ledger.scope.push(fileRel);
+          ledger.updated = nowIso();
+          saveLedger(knowledge, ledger);
+          return `Added ${fileRel} to scope. Scope: [${ledger.scope.join(", ")}]`;
+        },
+      }),
+
+      intern_anchorRefresh: tool({
+        description: "Refresh anchor statuses without resetting reads or steps.",
+        args: {
+          specRoot: tool.schema.string().describe("Spec folder path."),
+        },
+        async execute(args) {
+          const specRel = toRel(root, args.specRoot.replace(/\/+$/, ""));
+          if (!specRel || specRel.startsWith("..")) {
+            throw new Error(`specRoot outside repo: ${args.specRoot}`);
+          }
+          const taskId = slug(specRel);
+          const idx = readIndex(knowledge, taskId);
+          if (!idx) throw new Error("INDEX missing. Run intern_index first.");
+          const { createHash } = await import("node:crypto");
+          const { readFileSync: rf } = await import("node:fs");
+          let changed = 0;
+          for (const anchor of idx.anchors) {
+            const abs = join(root, anchor.file);
+            if (!existsSync(abs)) {
+              if (anchor.status !== "unresolved") { anchor.status = "unresolved"; changed++; }
+            } else {
+              const content = rf(abs);
+              const hash = createHash("sha256").update(content).digest("hex").slice(0, 8);
+              const expected = anchor.token || hash;
+              if (hash !== expected) {
+                if (anchor.status !== "stale") { anchor.status = "stale"; changed++; }
+              } else {
+                if (anchor.status !== "ok") { anchor.status = "ok"; changed++; }
+              }
+            }
+          }
+          saveIndex(knowledge, taskId, idx);
+          return `Anchor refresh: ${changed} changed, ${idx.anchors.length} total.`;
         },
       }),
     },

@@ -47,6 +47,7 @@ export interface PlanStep {
   title: string;
   anchor: string;
   done: boolean;
+  revision?: number;
 }
 
 export interface Ledger {
@@ -54,6 +55,7 @@ export interface Ledger {
   specRoot: string;
   role: string;
   phase: Phase;
+  revision: number;
   scope: string[];
   requiredReads: RequiredRead[];
   steps: PlanStep[];

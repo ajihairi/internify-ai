@@ -20,6 +20,14 @@
 - Docs site (Material for MkDocs) on GitHub Pages.
 - Published: [`internify-ai`](https://www.npmjs.com/package/internify-ai) on npm.
 - Tests: core units + adapter smoke; CI workflow.
+- **Rework & revision tracking** — `internify rework <spec>` resets phase, increments
+  revision, preserves old evidence. `ledger.revision` field. Revision-tagged evidence.
+- **Scope-add** — `internify scope-add <spec> <path>` expands scope without re-indexing.
+- **Anchor refresh** — `internify anchor-refresh <spec>` re-checks anchor statuses without
+  resetting reads or steps.
+- **Multi-override** — `forceAllow` persists until `close` or `override clear`.
+- **Done phase tightening** — `canEdit` in done phase enforces scope + step.
+- **Soft-block mode** — `INTERN_HARNESS=warn` logs warnings instead of blocking.
 
 ## Next
 

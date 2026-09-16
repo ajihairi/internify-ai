@@ -62,20 +62,41 @@ export function readIndex(knowledgeRoot: string, taskId: string): IndexFile | nu
   return parseIndex(readFileSync(p, "utf8"));
 }
 
-export function appendEvidence(knowledgeRoot: string, taskId: string, text: string) {
+export function appendEvidence(knowledgeRoot: string, taskId: string, text: string, revision?: number) {
   const dir = taskDir(knowledgeRoot, taskId);
   ensureDir(dir);
   const p = join(dir, "EVIDENCE.md");
   const prev = existsSync(p) ? readFileSync(p, "utf8") : "# EVIDENCE\n";
-  writeFileSync(p, prev.trimEnd() + "\n\n" + text + "\n");
+  const trimmed = prev.trimEnd();
+  let output = trimmed;
+  if (revision !== undefined) {
+    const revHeader = `## Revision ${revision}`;
+    const lastRevMatch = trimmed.match(/## Revision (\d+)$/);
+    const lastRev = lastRevMatch ? parseInt(lastRevMatch[1], 10) : 0;
+    if (revision > lastRev) {
+      output = trimmed + "\n\n" + revHeader + "\n";
+    }
+  }
+  writeFileSync(p, output + "\n" + text + "\n");
 }
 
-export function readEvidence(knowledgeRoot: string, taskId: string): EvidenceRecord[] {  const p = join(taskDir(knowledgeRoot, taskId), "EVIDENCE.md");
+export function readEvidence(knowledgeRoot: string, taskId: string): EvidenceRecord[] {
+  const p = join(taskDir(knowledgeRoot, taskId), "EVIDENCE.md");
   if (!existsSync(p)) return [];
   const out: EvidenceRecord[] = [];
+  let currentRevision: number | undefined;
   for (const line of readFileSync(p, "utf8").split("\n")) {
+    const revMatch = line.match(/^##\s+Revision\s+(\d+)/);
+    if (revMatch) {
+      currentRevision = parseInt(revMatch[1], 10);
+      continue;
+    }
     const m = line.match(/^##\s+(\S+)\s+.*result=(pass|fail)/);
-    if (m) out.push({ step: m[1], result: m[2] as "pass" | "fail" });
+    if (m) {
+      const rec: EvidenceRecord = { step: m[1], result: m[2] as "pass" | "fail" };
+      if (currentRevision !== undefined) rec.revision = currentRevision;
+      out.push(rec);
+    }
   }
   return out;
 }

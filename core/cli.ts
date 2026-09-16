@@ -294,6 +294,7 @@ function cmdClose(): void {
   const dailyName = appendDaily(
     knowledge,
     `### internify task closed — ${active.taskId} ${nowIso()}\n` +
+      `- rev: ${ledger.revision || 1}\n` +
       `- steps: ${ledger.steps.map((s) => s.id).join(", ")}\n` +
       `- evidence: .intern/state/tasks/${active.taskId}/EVIDENCE.md`,
     daily,
@@ -377,6 +378,86 @@ function cmdOverride(reason: string): void {
   console.log("Override recorded (one-shot).");
 }
 
+function cmdOverrideClear(): void {
+  const active = activeLedger();
+  const ledger = loadLedger(knowledge, active.taskId);
+  if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
+  ledger.forceAllow = false;
+  ledger.updated = nowIso();
+  saveLedger(knowledge, ledger);
+  console.log("Override cleared.");
+}
+
+function cmdRework(specArg: string): void {
+  if (!specArg) fail("usage: internify rework <spec-folder>");
+  const rel = toRel(specArg);
+  if (!inRepo(rel)) fail(`specRoot outside repo: ${specArg}`);
+  const taskId = slug(rel);
+  const ledger = loadLedger(knowledge, taskId);
+  if (!ledger) fail("ledger missing. run: internify index first");
+  if (ledger.phase !== "done") fail(`phase is "${ledger.phase}", must be "done" to rework`);
+  ledger.revision = (ledger.revision || 0) + 1;
+  ledger.phase = "orient";
+  ledger.activeStep = null;
+  for (const r of ledger.requiredReads) r.read = false;
+  for (const s of ledger.steps) {
+    s.done = false;
+    s.revision = ledger.revision;
+  }
+  ledger.updated = nowIso();
+  saveLedger(knowledge, ledger);
+  console.log(`Revision ${ledger.revision}. Phase: orient. Re-read required files.`);
+}
+
+function cmdScopeAdd(specArg: string, pathArg: string): void {
+  if (!specArg || !pathArg) fail("usage: internify scope-add <spec-folder> <path>");
+  const rel = toRel(specArg);
+  if (!inRepo(rel)) fail(`specRoot outside repo: ${specArg}`);
+  const taskId = slug(rel);
+  const ledger = loadLedger(knowledge, taskId);
+  if (!ledger) fail("ledger missing. run: internify index first");
+  if (ledger.phase !== "planned" && ledger.phase !== "acting" && ledger.phase !== "done") {
+    fail(`phase "${ledger.phase}" does not support scope-add (need planned/acting/done)`);
+  }
+  const fileRel = toRel(pathArg);
+  if (inRepo(fileRel) && !ledger.scope.includes(fileRel)) {
+    ledger.scope.push(fileRel);
+    ledger.updated = nowIso();
+    saveLedger(knowledge, ledger);
+    console.log(`Added ${fileRel} to scope. Scope: [${ledger.scope.join(", ")}]`);
+  } else {
+    console.log(`${fileRel} already in scope or outside repo.`);
+  }
+}
+
+async function cmdAnchorRefresh(specArg: string): Promise<void> {
+  if (!specArg) fail("usage: internify anchor-refresh <spec-folder>");
+  const rel = toRel(specArg);
+  if (!inRepo(rel)) fail(`specRoot outside repo: ${specArg}`);
+  const taskId = slug(rel);
+  const idx = readIndex(knowledge, taskId);
+  if (!idx) fail("INDEX missing. run: internify index first");
+  const { createHash } = await import("node:crypto");
+  let changed = 0;
+  for (const anchor of idx.anchors) {
+    const abs = join(root, anchor.file);
+    if (!existsSync(abs)) {
+      if (anchor.status !== "unresolved") { anchor.status = "unresolved"; changed++; }
+    } else {
+      const content = readFileSync(abs);
+      const hash = createHash("sha256").update(content).digest("hex").slice(0, 8);
+      const expected = anchor.token || hash;
+      if (hash !== expected) {
+        if (anchor.status !== "stale") { anchor.status = "stale"; changed++; }
+      } else {
+        if (anchor.status !== "ok") { anchor.status = "ok"; changed++; }
+      }
+    }
+  }
+  saveIndex(knowledge, taskId, idx);
+  console.log(`Anchor refresh: ${changed} changed, ${idx.anchors.length} total.`);
+}
+
 function cmdGateEdit(file: string): void {
   if (!file) fail("usage: internify gate edit <file>");
   const active = activeLedger();
@@ -391,11 +472,6 @@ function cmdGateEdit(file: string): void {
   }
   const d = canEdit(root, ledger, file, { targetStatus });
   if (!d.ok) fail(d.reason ?? "blocked");
-  if (ledger.forceAllow) {
-    ledger.forceAllow = false;
-    ledger.updated = nowIso();
-    saveLedger(knowledge, ledger);
-  }
   console.log(`OK: ${file} is editable.`);
 }
 
@@ -638,6 +714,50 @@ Steps:
 5. Write \`Task.md\` (task table per role).
 6. Confirm with the user, then start work with \`/internify.work {ARGS}\`.`;
 
+const REWORK_BODY_TOOLS = `Rework a done spec: {ARGS}
+
+Steps:
+1. Call \`intern_rework\` with \`specRoot="{ARGS}"\` — resets phase to orient, increments revision, re-reads required files.
+2. Call \`intern_index\` with \`specRoot="{ARGS}"\` — re-read files and rebuild INDEX.
+3. For each plan step, re-read, re-step, re-edit as usual.
+4. Call \`intern_close\` when done.`;
+
+const REWORK_BODY_CLI = `Rework a done spec: {ARGS}
+
+Steps:
+1. \`internify rework {ARGS}\` — resets phase to orient, increments revision.
+2. \`internify index {ARGS}\` — re-read files and rebuild INDEX.
+3. Re-read, re-step, re-edit as usual.
+4. \`internify close\` when done.`;
+
+const SCOPEADD_BODY_TOOLS = `Add a file to the task scope: {ARGS}
+
+Call \`intern_scopeAdd\` with \`specRoot\` and \`path\` to expand the scope without re-indexing.`;
+
+const SCOPEADD_BODY_CLI = `Add a file to the task scope: {ARGS}
+
+Run \`internify scope-add {ARGS}\` to expand the scope without re-indexing.`;
+
+const ANCHORREFRESH_BODY_TOOLS = `Refresh anchor statuses: {ARGS}
+
+Call \`intern_anchorRefresh\` with \`specRoot="{ARGS}"\` to re-check anchor statuses without resetting reads or steps.`;
+
+const ANCHORREFRESH_BODY_CLI = `Refresh anchor statuses: {ARGS}
+
+Run \`internify anchor-refresh {ARGS}\` to re-check anchor statuses without resetting reads or steps.`;
+
+const CLOSE_BODY_TOOLS = `Close the spec: {ARGS}
+
+Call \`intern_close\` with \`specRoot="{ARGS}"\` to validate evidence, append the daily log, and finish.`;
+
+const CLOSE_BODY_CLI = `Close the spec: {ARGS}
+
+Run \`internify close {ARGS}\` to validate evidence, append the daily log, and finish.`;
+
+const OVERCLEAR_BODY_TOOLS = `Clear the forceAllow bypass: call \`intern_override_clear\` to manually clear the override.`;
+
+const OVERCLEAR_BODY_CLI = `Clear the forceAllow bypass: run \`internify override clear\` to manually clear the override.`;
+
 const SPEC_BODY_CLI = `Create a new spec folder and author its content: {ARGS}
 
 Steps:
@@ -698,6 +818,36 @@ const COMMANDS: CmdDef[] = [
     description: "Build a monthly timesheet from the daily logs.",
     tools: MONTHLY_BODY_TOOLS,
     cli: MONTHLY_BODY_CLI,
+  },
+  {
+    name: "rework",
+    description: "Rework a done spec — resets phase, increments revision.",
+    tools: REWORK_BODY_TOOLS,
+    cli: REWORK_BODY_CLI,
+  },
+  {
+    name: "scopeAdd",
+    description: "Add a file to the task scope without re-indexing.",
+    tools: SCOPEADD_BODY_TOOLS,
+    cli: SCOPEADD_BODY_CLI,
+  },
+  {
+    name: "anchorRefresh",
+    description: "Refresh anchor statuses without resetting reads or steps.",
+    tools: ANCHORREFRESH_BODY_TOOLS,
+    cli: ANCHORREFRESH_BODY_CLI,
+  },
+  {
+    name: "close",
+    description: "Close the spec — validate evidence, append daily log.",
+    tools: CLOSE_BODY_TOOLS,
+    cli: CLOSE_BODY_CLI,
+  },
+  {
+    name: "overrideClear",
+    description: "Clear the forceAllow bypass manually.",
+    tools: OVERCLEAR_BODY_TOOLS,
+    cli: OVERCLEAR_BODY_CLI,
   },
   {
     name: "help",
@@ -1055,12 +1205,17 @@ Commands:
   step <id> <anchor>                declare the active step
   evidence <step> --claim <c> --proof <p> --result pass|fail
   close                             validate evidence, append daily, finish
+  rework <spec>                     rework a done spec (revision+1, phase→orient)
+  scope-add <spec> <path>           add a file to scope without re-indexing
+  anchor-refresh <spec>             refresh anchor statuses without resetting reads
   status                            show phase + ledger (--all lists every active task)
-  override <reason>                 one-shot recorded gate bypass
+  override <reason>                 recorded gate bypass (persists until close/clear)
+  override clear                    clear forceAllow manually
   gate edit <file>                  exit 1 if the file is blocked
   gate bash "<command>"             exit 1 if the bash write is blocked
 
-Env: INTERNIFY_ROOT (default: cwd). Config: <root>/internify.json
+Env: INTERNIFY_ROOT (default: cwd), INTERN_HARNESS=on|warn|off
+Config: <root>/internify.json
   { "target", "knowledge", "plansDir", "dailyDir" }`);
 }
 
@@ -1132,7 +1287,17 @@ switch (cmd) {
     cmdStatus(rest);
     break;
   case "override":
-    cmdOverride(rest.join(" "));
+    if (rest[0] === "clear") cmdOverrideClear();
+    else cmdOverride(rest.join(" "));
+    break;
+  case "rework":
+    cmdRework(rest[0]);
+    break;
+  case "scope-add":
+    cmdScopeAdd(rest[0], rest[1]);
+    break;
+  case "anchor-refresh":
+    await cmdAnchorRefresh(rest[0]);
     break;
   case "gate":
     if (rest[0] === "edit") cmdGateEdit(rest[1]);

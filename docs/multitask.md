@@ -34,6 +34,24 @@ Replace the old single `active.json` pointer with an **active-task list**.
 Switching focus never loses context: re-indexing an idle task restores its own
 LEDGER state, and a `done`/idle task on the list never blocks the active one.
 
+## Rework in multi-task
+
+Reworking a done task doesn't break parallel tasks. Each task has its own
+revision counter and evidence chain. When you `internify rework <spec>`:
+
+- Only that task's phase resets to orient
+- Other tasks remain untouched
+- The reworked task gets `revision: N+1`
+- Old evidence is preserved under `## Revision N`
+
+```
+/internify.work FeatureA              # FeatureA = focus
+# ... finish FeatureA ...
+/internify.work FeatureB              # switch to FeatureB
+/internify.rework FeatureA            # rework FeatureA (revision++)
+/internify.status --all               # both tasks still listed
+```
+
 ## Primary-aware gates
 
 Gates resolve against the **primary** ledger only. This decouples "what I'm

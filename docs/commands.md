@@ -26,6 +26,10 @@ There are three kinds of "command" in internify — don't mix them up:
 | `/internify.review` | Review the active task: done / pending / risks |
 | `/internify.daily` | Summarize today's work into the daily log |
 | `/internify.monthly` | Build a monthly timesheet from the daily logs |
+| `/internify.rework <spec>` | Rework a done spec — resets phase to orient, increments revision, re-reads required files |
+| `/internify.scopeAdd <spec> <path>` | Add a file to the task scope without re-indexing |
+| `/internify.close <spec>` | Close the spec — validate evidence, append daily log, finish |
+| `/internify.anchorRefresh <spec>` | Refresh anchor statuses without resetting reads or steps |
 | `/internify.help` | List the internify commands |
 
 They are generated per provider by `internify init`, or
@@ -60,6 +64,7 @@ tool.
 | `intern_close` | Validate evidence, append the daily log, finish |
 | `intern_status` | Show phase + ledger (pass `all=true` to list every active task) |
 | `intern_override` | One-shot, recorded gate bypass |
+| `intern_rework` | Rework a done spec — resets phase, increments revision |
 
 Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 
@@ -81,9 +86,13 @@ Providers without tool hooks (Gemini, Qwen, Cursor) use the CLI instead.
 | `internify step <id> <anchor>` | Declare the active step |
 | `internify evidence <step> --claim … --proof … --result pass` | Record proof |
 | `internify close` | Validate evidence, append daily, finish |
+| `internify rework <spec-folder>` | Rework a done spec — reset phase to orient, increment revision, re-read |
+| `internify scope-add <spec-folder> <path>` | Add a file to the task scope without re-indexing |
+| `internify anchor-refresh <spec-folder>` | Refresh anchor statuses without resetting reads or steps |
 | `internify status` | Show focus task's phase + ledger + last daily's unfinished items |
 | `internify status --all` | List every active task with compact progress |
 | `internify override <reason>` | One-shot recorded gate bypass |
+| `internify override clear` | Clear the forceAllow bypass manually |
 | `internify gate edit <file>` | Exit 1 if the file is blocked |
 | `internify gate bash "<cmd>"` | Exit 1 if a shell write is blocked |
 | `internify skills list` | List available skill packs |

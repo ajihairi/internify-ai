@@ -9,6 +9,7 @@ export interface Decision {
 export interface EvidenceRecord {
   step: string;
   result: "pass" | "fail";
+  revision?: number;
 }
 
 function toRel(root: string, p: string): string {
@@ -38,8 +39,12 @@ export function canEdit(
   opts: EditOptions = {},
 ): Decision {
   if (ledger.forceAllow) return { ok: true };
-  // Finished tasks let their files stay editable (authoring/tweaks after close).
-  if (ledger.phase === "done") return { ok: true };
+  if (ledger.phase === "done") {
+    if (!inScope(repoRoot, filePath, ledger.scope)) {
+      return { ok: false, reason: `BLOCKED: file outside task scope: ${filePath}` };
+    }
+    return { ok: true };
+  }
   if (ledger.phase !== "planned" && ledger.phase !== "acting") {
     return {
       ok: false,
@@ -102,13 +107,17 @@ export function canClose(ledger: Ledger, evidence: EvidenceRecord[]): Decision {
   if (ledger.steps.length === 0) {
     return { ok: false, reason: "BLOCKED: no plan steps." };
   }
+  const currentRev = ledger.revision || 1;
+  const revEvidence = evidence.filter(
+    (e) => e.revision === undefined || e.revision === currentRev,
+  );
   const missing = ledger.steps.filter(
-    (s) => !evidence.some((e) => e.step === s.id && e.result === "pass"),
+    (s) => !revEvidence.some((e) => e.step === s.id && e.result === "pass"),
   );
   if (missing.length > 0) {
     return {
       ok: false,
-      reason: `BLOCKED: no passing evidence for step(s): ${missing.map((s) => s.id).join(", ")}`,
+      reason: `BLOCKED: no passing evidence for step(s) in rev ${currentRev}: ${missing.map((s) => s.id).join(", ")}`,
     };
   }
   return { ok: true };

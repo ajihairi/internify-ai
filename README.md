@@ -162,6 +162,33 @@ When it is `off`:
 Use it when the gates get in the way, or to compare behavior with/without the
 harness. Unset the variable to turn it back on.
 
+### Troubleshooting
+
+**`internify: command not found`** — the global npm bin dir is not in your PATH:
+
+```bash
+# find it
+npm bin -g
+
+# add to PATH (zsh — macOS default)
+echo 'export PATH="$(npm bin -g):$PATH"' >> ~/.zshrc && source ~/.zshrc
+
+# add to PATH (bash)
+echo 'export PATH="$(npm bin -g):$PATH"' >> ~/.bashrc && source ~/.bashrc
+```
+
+**`bun: command not found`** — install bun first:
+
+```bash
+curl -fsSL https://bun.sh/install | bash
+```
+
+**Using nvm/fnm?** They manage PATH automatically. Make sure bun is also in PATH:
+
+```bash
+which bun || curl -fsSL https://bun.sh/install | bash
+```
+
 ---
 
 ## Why

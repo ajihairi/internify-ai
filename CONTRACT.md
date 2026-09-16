@@ -70,14 +70,16 @@ generated: <iso8601>
 ```
 { "taskId", "specRoot", "role",
   "phase": "idle|orient|grounded|planned|acting|verifying|recorded|done",
+  "revision": 1,
   "scope": [...], "requiredReads": [...], "steps": [...],
   "decisions": [...], "openQuestions": [...], "activeStep": "...|null",
   "updated": "...", "forceAllow": false }
 ```
 
-### EVIDENCE.md (append-only)
+### EVIDENCE.md (append-only, revision-tagged)
 
 ```
+## Revision <N>
 ## <stepId> <iso8601> result=pass|fail
 claim: <what was claimed>
 proof: <how it was verified>
@@ -94,8 +96,12 @@ proof: <how it was verified>
 | `step <id> <anchor>` | Declare active step + anchor |
 | `evidence <step> --claim --proof --result` | Append a proof record |
 | `close` | Validate evidence, append daily log, finish |
+| `rework <spec-folder>` | Rework a done spec — reset phase, increment revision, re-read |
+| `scope-add <spec-folder> <path>` | Add a file to the task scope without re-indexing |
+| `anchor-refresh <spec-folder>` | Refresh anchor statuses without resetting reads or steps |
 | `status` | Show phase + ledger |
 | `override <reason>` | One-shot recorded gate bypass |
+| `override clear` | Clear forceAllow bypass manually |
 
 ## 4. Gates
 
@@ -107,6 +113,14 @@ proof: <how it was verified>
 | **Status** | Rewriting a `fixed` document (source of truth) | `BLOCKED: … is a fixed document (source of truth).` |
 | **Evidence** | Closing a task with a step that has no passing evidence | `BLOCKED: no passing evidence for step(s)…` |
 | **Bash** | A shell write before a step, or one that doesn't touch a scoped file | `BLOCKED: bash write … Prefer the edit/write tools.` |
+
+Gate behavior modes (`INTERN_HARNESS`):
+
+| Mode | Behavior |
+|------|----------|
+| `on` (default) | Block on gate fail (current behavior) |
+| `warn` | Log warning on gate fail, allow execution anyway |
+| `off` | Disable harness entirely |
 
 ## 4b. Document status
 
@@ -133,4 +147,4 @@ blocked tools raise and must not mutate.
 - Writes are confined to `.intern/state/` and `.intern/daily/`; reads/scans are
   confined to the workspace root.
 - `override` is the recorded escape hatch; `INTERN_HARNESS=off` disables the
-  whole thing.
+  whole thing. `override` persists until `close` or `override clear`.

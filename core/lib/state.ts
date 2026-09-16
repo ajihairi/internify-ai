@@ -24,6 +24,7 @@ export function emptyLedger(
     specRoot,
     role,
     phase: "orient",
+    revision: 0,
     scope: [],
     requiredReads: [],
     steps: [],
@@ -47,6 +48,7 @@ export function serializeLedger(l: Ledger): string {
     `spec_root: ${l.specRoot}`,
     `role: ${l.role}`,
     `phase: ${l.phase}`,
+    `revision: ${l.revision}`,
     `updated: ${l.updated}`,
     "",
     "## Scope (allowed files)",
@@ -82,7 +84,9 @@ export function parseLedger(md: string): Ledger | null {
     ) {
       return null;
     }
-    return obj as Ledger;
+    const ledger = obj as Ledger;
+    if (typeof ledger.revision !== "number") ledger.revision = 0;
+    return ledger;
   } catch {
     return null;
   }

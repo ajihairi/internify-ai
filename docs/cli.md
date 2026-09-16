@@ -22,6 +22,10 @@ to `<root>/.intern`; override via `<root>/internify.json`.
 | `internify step <id> <anchor>` | Declare the active step |
 | `internify evidence <step> --claim <c> --proof <p> --result pass\|fail` | Record proof for a step |
 | `internify close` | Validate evidence, append the daily log, finish |
+| `internify rework <spec-folder>` | Rework a done spec — reset phase to orient, increment revision, re-read required files |
+| `internify scope-add <spec-folder> <path>` | Add a file to the task scope without re-indexing |
+| `internify anchor-refresh <spec-folder>` | Refresh anchor statuses without resetting reads or steps |
+| `internify override clear` | Clear the forceAllow bypass manually |
 | `internify status` | Show phase + ledger + last daily's unfinished items |
 | `internify override <reason>` | One-shot recorded gate bypass |
 | `internify gate edit <file>` | Exit 1 if the file is blocked |
@@ -33,6 +37,7 @@ to `<root>/.intern`; override via `<root>/internify.json`.
 |----------|--------|
 | `INTERNIFY_ROOT` | Workspace root (default: cwd) |
 | `INTERN_HARNESS=off` | Disable gating (CLI still works) |
+| `INTERN_HARNESS=warn` | Soft-block mode — gates run but log warnings instead of blocking |
 | `INTERN_SCAN=off` | Disable the automatic project scan at boot ([scan](scan.md)) |
 
 ## Examples
@@ -46,6 +51,13 @@ internify step S1 A1
 internify gate edit src/Feature.swift            # exit 1 if blocked
 internify evidence S1 --claim "wired title" --proof "read src/Feature.swift" --result pass
 internify close
+
+# Rework a done spec (revision tracking)
+internify rework .intern/plans/FeatureX     # reset to orient, revision++
+internify index .intern/plans/FeatureX      # re-read files
+internify scope-add .intern/plans/FeatureX src/NewFile.swift  # expand scope
+internify anchor-refresh .intern/plans/FeatureX  # refresh anchors only
+internify override clear                    # clear forceAllow manually
 ```
 
 ## Using it from any tool
