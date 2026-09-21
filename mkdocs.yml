@@ -63,6 +63,7 @@ nav:
       - "02 — Portability": articles/02-portability.md
       - "03 — Publishing": articles/03-publishing.md
       - "04 — Workspace model": articles/04-internify-workspace.md
+      - "05 — internify × uteuk": articles/05-second-brain-uteuk.md
   - Roadmap: roadmap.md
 
 markdown_extensions:
