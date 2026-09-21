@@ -42,6 +42,7 @@ They are complementary:
 - Minimal: `internify` only.
 - Balanced: `internify` + `superpowers` + `caveman`.
 - Full second brain: `internify` + `superpowers` + `uteuk` (Advanced structure).
+  See [Full second brain](second-brain.md).
 
 ## Installing a pack
 

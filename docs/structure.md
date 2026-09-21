@@ -51,6 +51,12 @@ Point internify at it with `plansDir`:
 }
 ```
 
+!!! tip "Pairing with uteuk"
+    The advanced profile mirrors [uteuk](https://rezkyahairy.github.io/uteuk/)'s
+    PARA vault. Combine the two into a full second brain — capture with
+    `/uteuk.capture`, execute with `/internify.work`. See
+    [Full second brain](second-brain.md).
+
 ## Draft vs canonical
 
 Each note carries a status in frontmatter, so the agent knows what is settled:
