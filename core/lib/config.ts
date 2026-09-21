@@ -21,6 +21,8 @@ export interface Paths {
   plans: string;
   /** Absolute path to the daily log directory (default `<knowledge>/daily`). */
   daily: string;
+  /** Gate behavior: "soft" (default) warns on gate fail, "strict" blocks. */
+  gateMode: "soft" | "strict";
   /** Extra AI-file includes (relative to target). */
   scan?: string[];
   /** Extra paths to skip during scan (relative to target). */
@@ -35,6 +37,7 @@ export function loadPaths(root: string): Paths {
   let daily = "";
   let scan: string[] | undefined;
   let scanIgnore: string[] | undefined;
+  let gateMode: "soft" | "strict" = "soft";
   const cfg = join(abs, "internify.json");
   if (existsSync(cfg)) {
     try {
@@ -53,11 +56,12 @@ export function loadPaths(root: string): Paths {
       }
       if (Array.isArray(c.scan)) scan = (c.scan as unknown[]).filter((x) => typeof x === "string") as string[];
       if (Array.isArray(c.scanIgnore)) scanIgnore = (c.scanIgnore as unknown[]).filter((x) => typeof x === "string") as string[];
+      if (c.gateMode === "strict" || c.gateMode === "soft") gateMode = c.gateMode;
     } catch {
       // ignore malformed config; fall back to defaults
     }
   }
   if (!plans) plans = join(knowledge, "plans");
   if (!daily) daily = join(knowledge, "daily");
-  return { root: abs, knowledge, target, plans, daily, scan, scanIgnore };
+  return { root: abs, knowledge, target, plans, daily, gateMode, scan, scanIgnore };
 }

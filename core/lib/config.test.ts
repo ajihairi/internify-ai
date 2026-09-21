@@ -56,3 +56,16 @@ test("malformed config falls back to defaults", () => {
   expect(p.target).toBe(r);
   expect(p.plans).toBe(join(r, ".intern", "plans"));
 });
+
+test("gateMode defaults to soft", () => {
+  const r = mkdtempSync(join(tmpdir(), "internify-cfg-"));
+  expect(loadPaths(r).gateMode).toBe("soft");
+});
+
+test("gateMode: strict parsed, invalid ignored", () => {
+  const r = mkdtempSync(join(tmpdir(), "internify-cfg-"));
+  writeFileSync(join(r, "internify.json"), JSON.stringify({ gateMode: "strict" }));
+  expect(loadPaths(r).gateMode).toBe("strict");
+  writeFileSync(join(r, "internify.json"), JSON.stringify({ gateMode: "yolo" }));
+  expect(loadPaths(r).gateMode).toBe("soft");
+});

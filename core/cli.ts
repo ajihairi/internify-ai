@@ -25,10 +25,11 @@ import { homedir } from "node:os";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { buildIndex } from "./lib/index-builder";
-import { canEdit, canStep, canClose, canBash } from "./lib/gates";
+import { canEdit, canStep, canClose, canBash, enforceGate, type GateMode } from "./lib/gates";
 import { sliceFunction, sliceSection } from "./lib/context";
 import { loadPaths } from "./lib/config";
 import { doctorChecks } from "./lib/doctor";
+import { refreshAnchorStatuses } from "./lib/anchors";
 import { parseStatus } from "./lib/status";
 import {
   hashDir,
@@ -74,7 +75,9 @@ import { formatDailyUnfinished, loadLatestDaily } from "./lib/daily";
 const root = process.env.INTERNIFY_ROOT
   ? resolve(process.env.INTERNIFY_ROOT)
   : process.cwd();
-const { knowledge, target, plans, daily, scan, scanIgnore } = loadPaths(root);
+const { knowledge, target, plans, daily, scan, scanIgnore, gateMode } = loadPaths(root);
+const GATE_MODE: GateMode =
+  process.env.INTERN_HARNESS === "on" ? "strict" : gateMode;
 
 function fail(msg: string): never {
   console.error(msg);
@@ -262,8 +265,13 @@ function cmdStep(id: string, anchor: string): void {
   const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
   const idx = readIndex(knowledge, active.taskId);
-  const d = canStep(ledger, anchor ?? "", idx?.anchors ?? []);
+  if (idx) {
+    const changed = refreshAnchorStatuses(root, idx);
+    if (changed > 0) saveIndex(knowledge, active.taskId, idx);
+  }
+  const d = enforceGate(canStep(ledger, anchor ?? "", idx?.anchors ?? []), GATE_MODE);
   if (!d.ok) fail(d.reason ?? "blocked");
+  if (d.reason) console.warn(d.reason);
   ledger.activeStep = id;
   ledger.phase = "planned";
   ledger.updated = nowIso();
@@ -427,9 +435,6 @@ function cmdScopeAdd(specArg: string, pathArg: string): void {
   const taskId = slug(rel);
   const ledger = loadLedger(knowledge, taskId);
   if (!ledger) fail("ledger missing. run: internify index first");
-  if (ledger.phase !== "planned" && ledger.phase !== "acting" && ledger.phase !== "done") {
-    fail(`phase "${ledger.phase}" does not support scope-add (need planned/acting/done)`);
-  }
   const fileRel = toRel(pathArg);
   if (inRepo(fileRel) && !ledger.scope.includes(fileRel)) {
     ledger.scope.push(fileRel);
@@ -448,23 +453,7 @@ async function cmdAnchorRefresh(specArg: string): Promise<void> {
   const taskId = slug(rel);
   const idx = readIndex(knowledge, taskId);
   if (!idx) fail("INDEX missing. run: internify index first");
-  const { createHash } = await import("node:crypto");
-  let changed = 0;
-  for (const anchor of idx.anchors) {
-    const abs = join(root, anchor.file);
-    if (!existsSync(abs)) {
-      if (anchor.status !== "unresolved") { anchor.status = "unresolved"; changed++; }
-    } else {
-      const content = readFileSync(abs);
-      const hash = createHash("sha256").update(content).digest("hex").slice(0, 8);
-      const expected = anchor.token || hash;
-      if (hash !== expected) {
-        if (anchor.status !== "stale") { anchor.status = "stale"; changed++; }
-      } else {
-        if (anchor.status !== "ok") { anchor.status = "ok"; changed++; }
-      }
-    }
-  }
+  const changed = refreshAnchorStatuses(root, idx);
   saveIndex(knowledge, taskId, idx);
   console.log(`Anchor refresh: ${changed} changed, ${idx.anchors.length} total.`);
 }
@@ -481,8 +470,9 @@ function cmdGateEdit(file: string): void {
   } catch {
     /* ignore */
   }
-  const d = canEdit(root, ledger, file, { targetStatus });
+  const d = enforceGate(canEdit(root, ledger, file, { targetStatus }), GATE_MODE);
   if (!d.ok) fail(d.reason ?? "blocked");
+  if (d.reason) console.warn(d.reason);
   console.log(`OK: ${file} is editable.`);
 }
 
@@ -491,8 +481,9 @@ function cmdGateBash(command: string): void {
   const active = activeLedger();
   const ledger = loadLedger(knowledge, active.taskId);
   if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
-  const d = canBash(root, ledger, command);
+  const d = enforceGate(canBash(root, ledger, command), GATE_MODE);
   if (!d.ok) fail(d.reason ?? "blocked");
+  if (d.reason) console.warn(d.reason);
   console.log("OK: bash command allowed.");
 }
 

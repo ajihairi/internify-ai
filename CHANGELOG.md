@@ -6,6 +6,20 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-09-21
+
+### Changed
+
+- **Soft gates by default.** Gate failures (read/scope/step/anchor/bash) are
+  downgraded to `WARN (soft gate): …` warnings — work never gets stuck on
+  ceremony. The close/evidence gate stays hard in every mode. Opt back into
+  blocking with `"gateMode": "strict"` in `internify.json` or
+  `INTERN_HARNESS=on`.
+- **Auto anchor-refresh on step.** Declaring a step re-checks anchor statuses
+  against disk first — a stale anchor no longer blocks step entry.
+- **scope-add in any phase.** The `planned/acting/done` phase restriction is
+  removed; `internify scope-add` works whenever a ledger exists.
+
 ## [0.20.0] - 2026-09-21
 
 ### Added

@@ -13,7 +13,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join, isAbsolute } from "node:path";
 import { getActive, loadLedger } from "../../core/lib/io";
 import { loadPaths } from "../../core/lib/config";
-import { canEdit, canBash } from "../../core/lib/gates";
+import { canEdit, canBash, enforceGate } from "../../core/lib/gates";
 import { parseStatus } from "../../core/lib/status";
 
 const root = process.env.INTERNIFY_ROOT || process.cwd();
@@ -21,7 +21,8 @@ const root = process.env.INTERNIFY_ROOT || process.cwd();
 // Kill switch — same semantics as the opencode adapter.
 if (process.env.INTERN_HARNESS === "off") process.exit(0);
 
-const { knowledge } = loadPaths(root);
+const { knowledge, gateMode } = loadPaths(root);
+const mode = process.env.INTERN_HARNESS === "on" ? "strict" : gateMode;
 
 let input: Record<string, unknown> = {};
 async function readStdin(): Promise<string> {
@@ -53,11 +54,12 @@ if (!ledger) {
 if (tool === "Bash") {
   const command = ti.command;
   if (typeof command === "string") {
-    const d = canBash(root, ledger, command);
+    const d = enforceGate(canBash(root, ledger, command), mode);
     if (!d.ok) {
       console.error(d.reason ?? "BLOCKED");
       process.exit(2);
     }
+    if (d.reason) console.error(d.reason);
   }
   process.exit(0);
 }
@@ -71,11 +73,12 @@ if (typeof filePath === "string") {
   } catch {
     /* ignore */
   }
-  const d = canEdit(root, ledger, filePath, { targetStatus });
+  const d = enforceGate(canEdit(root, ledger, filePath, { targetStatus }), mode);
   if (!d.ok) {
     console.error(d.reason ?? "BLOCKED");
     process.exit(2);
   }
+  if (d.reason) console.error(d.reason);
 }
 
 process.exit(0);

@@ -11,6 +11,7 @@ import { dirname, join } from "node:path";
 import { buildIndex } from "./lib/index-builder";
 import { slug, emptyLedger, serializeLedger, parseLedger } from "./lib/state";
 import { canEdit, canStep, canClose } from "./lib/gates";
+import { enforceGate } from "./lib/gates";
 import {
   saveIndex,
   saveLedger,
@@ -346,6 +347,26 @@ check(
   "lifecycle: prune drops orphan entry",
   orphan.pruned.length === 1 && orphan.pruned[0] === "ghost-orphan",
   `pruned=${orphan.pruned.join(",")}`,
+);
+
+console.log("\n## gate modes — soft default, hard close");
+const softD = enforceGate({ ok: false, reason: "BLOCKED: no active step." }, "soft");
+check(
+  "gatemode: soft downgrades block to warning",
+  softD.ok === true && (softD.reason ?? "").includes("WARN (soft gate)"),
+  softD.reason ?? "(no reason)",
+);
+const hardD = enforceGate({ ok: false, reason: "BLOCKED: no passing evidence" }, "soft", true);
+check(
+  "gatemode: close gate stays hard in soft mode",
+  hardD.ok === false,
+  hardD.reason ?? "(unexpected ok)",
+);
+const strictD = enforceGate({ ok: false, reason: "BLOCKED: x" }, "strict");
+check(
+  "gatemode: strict blocks as-is",
+  strictD.ok === false,
+  strictD.reason ?? "(unexpected ok)",
 );
 
 console.log("\n## summary");

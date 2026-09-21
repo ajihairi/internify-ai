@@ -6,6 +6,19 @@ export interface Decision {
   reason?: string;
 }
 
+export type GateMode = "soft" | "strict";
+
+/**
+ * Apply the gate mode to a decision. Hard gates (close/evidence) and strict
+ * mode block as-is. In soft mode a failed gate is downgraded to an allowed
+ * decision that carries the warning — work never gets stuck on ceremony.
+ */
+export function enforceGate(d: Decision, mode: GateMode, hard = false): Decision {
+  if (d.ok) return d;
+  if (hard || mode === "strict") return d;
+  return { ok: true, reason: d.reason ? `WARN (soft gate): ${d.reason}` : "WARN (soft gate)" };
+}
+
 export interface EvidenceRecord {
   step: string;
   result: "pass" | "fail";

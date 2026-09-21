@@ -126,13 +126,20 @@ independent of the harness; check them off manually).
 | **Evidence** | Closing a task with a step that has no passing evidence | `BLOCKED: no passing evidence for step(s)…` |
 | **Bash** | A shell write before a step, or one that doesn't touch a scoped file | `BLOCKED: bash write … Prefer the edit/write tools.` |
 
-Gate behavior modes (`INTERN_HARNESS`):
+Gate behavior modes (`INTERN_HARNESS` / `internify.json` `gateMode`):
 
 | Mode | Behavior |
 |------|----------|
-| `on` (default) | Block on gate fail (current behavior) |
-| `warn` | Log warning on gate fail, allow execution anyway |
+| `soft` (default) | Failed gates are downgraded to a warning (`WARN (soft gate): …`) and the action is allowed. Only the close/evidence gate stays hard. |
+| `strict` (`INTERN_HARNESS=on` or `"gateMode": "strict"`) | Block on gate fail. |
+| `warn` (`INTERN_HARNESS=warn`) | Same as soft. |
 | `off` | Disable harness entirely |
+
+Mode resolution: `INTERN_HARNESS` env wins; otherwise `internify.json`
+`"gateMode"` (`"soft"` by default, `"strict"` to opt back into blocking).
+The close/evidence gate is always hard in every mode — state integrity is
+never negotiable. `anchor-refresh` runs automatically on every `step`
+declaration, and `scope-add` is allowed in any phase.
 
 ## 4b. Document status
 

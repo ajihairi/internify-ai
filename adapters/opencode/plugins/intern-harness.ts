@@ -1,7 +1,8 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin";
 import { buildIndex } from "../../../core/lib/index-builder";
-import { canEdit, canStep, canClose, canBash } from "../../../core/lib/gates";
+import { canEdit, canStep, canClose, canBash, enforceGate } from "../../../core/lib/gates";
+import { refreshAnchorStatuses } from "../../../core/lib/anchors";
 import { sliceFunction, sliceSection } from "../../../core/lib/context";
 import { parseStatus } from "../../../core/lib/status";
 import { loadPaths } from "../../../core/lib/config";
@@ -55,9 +56,15 @@ function isUnderDaily(knowledgeRoot: string, dailyRoot: string, p: string): bool
 
 export const InternHarness: Plugin = async ({ directory, worktree }) => {
   if (process.env.INTERN_HARNESS === "off") return {};
-  const harnessMode = process.env.INTERN_HARNESS === "warn" ? "warn" : "on";
   const root = worktree || directory;
   const paths = loadPaths(root);
+  const envMode = process.env.INTERN_HARNESS;
+  const harnessMode: "warn" | "on" =
+    envMode === "warn" || envMode === "on"
+      ? envMode
+      : paths.gateMode === "strict"
+        ? "on"
+        : "warn";
   const knowledge = paths.knowledge;
   const target = paths.target;
   const plans = paths.plans;
@@ -398,8 +405,16 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           const ledger = loadLedger(knowledge, active.taskId);
           if (!ledger) return "Ledger missing.";
           const idx = readIndex(knowledge, active.taskId);
-          const d = canStep(ledger, args.anchor, idx?.anchors ?? []);
+          if (idx) {
+            const changed = refreshAnchorStatuses(root, idx);
+            if (changed > 0) saveIndex(knowledge, active.taskId, idx);
+          }
+          const d = enforceGate(
+            canStep(ledger, args.anchor, idx?.anchors ?? []),
+            harnessMode === "on" ? "strict" : "soft",
+          );
           if (!d.ok) throw new Error(d.reason);
+          if (d.reason) console.warn(d.reason);
           ledger.activeStep = args.stepId;
           ledger.phase = "planned";
           ledger.updated = nowIso();
@@ -588,9 +603,6 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           const taskId = slug(specRel);
           const ledger = loadLedger(knowledge, taskId);
           if (!ledger) throw new Error("Ledger missing. Run intern_index first.");
-          if (ledger.phase !== "planned" && ledger.phase !== "acting" && ledger.phase !== "done") {
-            throw new Error(`Phase "${ledger.phase}" does not support scope-add (need planned/acting/done).`);
-          }
           const fileRel = toRel(root, args.path);
           if (!fileRel || fileRel.startsWith("..")) {
             throw new Error(`Path outside repo: ${args.path}`);

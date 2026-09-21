@@ -217,3 +217,31 @@ test("canEdit done phase still bypassed by forceAllow", () => {
   expect(canEdit("/repo", l, "src/B.swift").ok).toBe(true);
 });
 
+
+// --- enforceGate (soft/strict modes) ---
+
+import { enforceGate } from "./gates";
+
+test("enforceGate soft downgrades a failed decision to allowed with warning", () => {
+  const d = enforceGate({ ok: false, reason: "BLOCKED: no active step." }, "soft");
+  expect(d.ok).toBe(true);
+  expect(d.reason).toContain("WARN (soft gate)");
+  expect(d.reason).toContain("no active step");
+});
+
+test("enforceGate soft passes through ok decisions untouched", () => {
+  const d = enforceGate({ ok: true }, "soft");
+  expect(d.ok).toBe(true);
+  expect(d.reason).toBeUndefined();
+});
+
+test("enforceGate strict blocks as-is", () => {
+  const d = enforceGate({ ok: false, reason: "BLOCKED: x" }, "strict");
+  expect(d.ok).toBe(false);
+  expect(d.reason).toBe("BLOCKED: x");
+});
+
+test("enforceGate hard stays blocked even in soft mode", () => {
+  const d = enforceGate({ ok: false, reason: "BLOCKED: no passing evidence" }, "soft", true);
+  expect(d.ok).toBe(false);
+});
