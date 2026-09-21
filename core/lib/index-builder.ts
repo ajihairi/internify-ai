@@ -145,3 +145,21 @@ export function buildIndex(
 
   return { specRoot, generated: nowIso(), requiredReads, anchors, slices };
 }
+
+/**
+ * Merge a fresh index scan with a previous ledger's required reads so a
+ * resumed task keeps its grounded state. A read stays marked `read: true`
+ * only when the file hash is unchanged since the last index build — a
+ * changed file falls back to unread. New files start unread.
+ */
+export function mergeRequiredReads(
+  previous: RequiredRead[],
+  fresh: RequiredRead[],
+): RequiredRead[] {
+  const prevByPath = new Map(previous.map((r) => [r.path, r]));
+  return fresh.map((r) => {
+    const prev = prevByPath.get(r.path);
+    const stillRead = !!prev && prev.read === true && prev.hash === r.hash;
+    return { ...r, read: stillRead };
+  });
+}

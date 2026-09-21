@@ -6,6 +6,24 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-09-21
+
+### Added
+
+- **Hash-aware resume.** `internify work <spec>` no longer resets the world:
+  required reads whose file hash is unchanged stay grounded, and the phase is
+  preserved instead of being kicked back to `orient`. Output shows
+  `resumed: phase=…, step=…, evidence=… pass, re-read: N`.
+- **`close [<spec>] [--force]`.** Close a specific task without switching
+  focus (the slash command always advertised this — now the CLI and the
+  `intern_close` tool deliver it). `--force` skips the evidence gate and
+  records a FORCE-CLOSED decision in the ledger.
+- **`internify clear <spec> | --all [--purge]`.** Escape hatch to remove
+  stuck/done tasks from `active.json` without the close ritual; `--purge`
+  also deletes task state. `/internify.clear` command added.
+- `status --all` hints when a closed task is still listed: `internify clear
+  <taskId>`.
+
 ## [0.21.0] - 2026-09-21
 
 ### Changed

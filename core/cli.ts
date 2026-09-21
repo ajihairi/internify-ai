@@ -19,12 +19,12 @@
  * <root>/.intern; override both root and target via <root>/internify.json.
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, cpSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, cpSync, readdirSync, statSync, rmSync } from "node:fs";
 import { join, resolve, relative, isAbsolute, dirname } from "node:path";
 import { homedir } from "node:os";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
-import { buildIndex } from "./lib/index-builder";
+import { buildIndex, mergeRequiredReads } from "./lib/index-builder";
 import { canEdit, canStep, canClose, canBash, enforceGate, type GateMode } from "./lib/gates";
 import { sliceFunction, sliceSection } from "./lib/context";
 import { loadPaths } from "./lib/config";
@@ -200,8 +200,10 @@ function cmdIndex(specArg: string): void {
   const taskId = slug(rel);
   const idx = buildIndex(join(root, rel), root, target);
   saveIndex(knowledge, taskId, idx);
-  const ledger = loadLedger(knowledge, taskId) ?? emptyLedger(taskId, rel);
-  ledger.requiredReads = idx.requiredReads.map((r) => ({ ...r, read: false }));
+  const prev = loadLedger(knowledge, taskId);
+  const ledger = prev ?? emptyLedger(taskId, rel);
+  const freshReads = mergeRequiredReads(prev?.requiredReads ?? [], idx.requiredReads);
+  ledger.requiredReads = freshReads;
   ledger.scope = idx.requiredReads.map((r) => r.path);
   if (ledger.scope.length === 0) ledger.scope = [rel];
   if (ledger.steps.length === 0) {
@@ -212,11 +214,25 @@ function cmdIndex(specArg: string): void {
       done: false,
     }));
   }
-  ledger.phase = "orient";
+  const resuming = !!prev && prev.phase !== "idle";
+  if (!resuming) ledger.phase = "orient";
   ledger.updated = nowIso();
   saveLedger(knowledge, ledger);
   setActive(knowledge, taskId, rel);
-  console.log(`INDEX built. task=${taskId} reads=${idx.requiredReads.length}`);
+  if (resuming) {
+    const unread = ledger.requiredReads.filter((r) => !r.read).length;
+    const ev = readEvidence(knowledge, taskId);
+    console.log(
+      `INDEX built. task=${taskId} reads=${freshReads.length} ` +
+        `(resumed: phase=${ledger.phase}, step=${ledger.activeStep ?? "(none)"}, ` +
+        `evidence=${ev.filter((e) => e.result === "pass").length} pass, re-read: ${unread})`,
+    );
+    if (ledger.phase === "done") {
+      console.log("note: task already done — use `internify rework` to restart it.");
+    }
+  } else {
+    console.log(`INDEX built. task=${taskId} reads=${freshReads.length}`);
+  }
 }
 
 function cmdRead(pathArg: string): void {
@@ -298,30 +314,81 @@ function cmdEvidence(step: string, argv: string[]): void {
   console.log(`Evidence recorded for ${step} (${result}).`);
 }
 
-function cmdClose(): void {
-  const active = activeLedger();
-  const ledger = loadLedger(knowledge, active.taskId);
-  if (!ledger) fail("ledger missing/corrupt. re-run: internify index");
-  const d = canClose(ledger, readEvidence(knowledge, active.taskId));
-  if (!d.ok) fail(d.reason ?? "blocked");
+function cmdClose(argv: string[] = []): void {
+  const f = flags(argv);
+  const force = f.force === "true" || argv.includes("--force");
+  const specArg = argv.find((a) => !a.startsWith("--"));
+  let taskId: string;
+  if (specArg) {
+    const rel = toRel(specArg);
+    if (!inRepo(rel)) fail(`specRoot outside repo: ${specArg}`);
+    taskId = slug(rel);
+  } else {
+    taskId = activeLedger().taskId;
+  }
+  const ledger = loadLedger(knowledge, taskId);
+  if (!ledger) fail(`ledger missing for ${taskId}. re-run: internify index`);
+  if (!force) {
+    const d = canClose(ledger, readEvidence(knowledge, taskId));
+    if (!d.ok) fail(d.reason ?? "blocked");
+  }
   const dailyName = appendDaily(
     knowledge,
-    `### internify task closed — ${active.taskId} ${nowIso()}\n` +
+    `### internify task closed — ${taskId} ${nowIso()}${force ? " (force)" : ""}\n` +
       `- rev: ${ledger.revision || 1}\n` +
       `- steps: ${ledger.steps.map((s) => s.id).join(", ")}\n` +
-      `- evidence: .intern/state/tasks/${active.taskId}/EVIDENCE.md`,
+      `- evidence: .intern/state/tasks/${taskId}/EVIDENCE.md`,
     daily,
   );
   ledger.steps.forEach((s) => (s.done = true));
   ledger.phase = "done";
   ledger.forceAllow = false;
+  if (force) {
+    ledger.decisions = [
+      ...(ledger.decisions ?? []),
+      `FORCE-CLOSED ${nowIso()}: closed without full evidence by user request`,
+    ];
+  }
   ledger.updated = nowIso();
   saveLedger(knowledge, ledger);
-  const dailyRes = resolveDailyChecklists(daily, active.taskId);
-  removeActiveTask(knowledge, active.taskId);
+  const dailyRes = resolveDailyChecklists(daily, taskId);
+  removeActiveTask(knowledge, taskId);
   console.log(
-    `Task ${active.taskId} closed. Daily: ${dailyName}` +
+    `Task ${taskId} closed${force ? " (force)" : ""}. Daily: ${dailyName}` +
       (dailyRes.checked > 0 ? ` · daily items checked: ${dailyRes.checked}` : ""),
+  );
+}
+
+function cmdClear(argv: string[] = []): void {
+  const f = flags(argv);
+  const purge = f.purge === "true" || argv.includes("--purge");
+  const all = f.all === "true" || argv.includes("--all");
+  const specArg = argv.find((a) => !a.startsWith("--"));
+  const activeTasks = loadActiveTasks(knowledge);
+  let targets: string[];
+  if (all) {
+    targets = activeTasks.map((t) => t.taskId);
+  } else if (specArg) {
+    const rel = toRel(specArg);
+    if (!inRepo(rel)) fail(`specRoot outside repo: ${specArg}`);
+    targets = [slug(rel)];
+  } else {
+    fail("usage: internify clear <spec-folder> | --all [--purge]");
+  }
+  if (targets.length === 0) {
+    console.log("no active tasks to clear.");
+    return;
+  }
+  for (const taskId of targets) {
+    removeActiveTask(knowledge, taskId);
+    if (purge) {
+      const dir = join(knowledge, "state", "tasks", taskId);
+      if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
+    }
+    console.log(`cleared ${taskId}${purge ? " (state purged)" : ""}`);
+  }
+  console.log(
+    `focus is now: ${getPrimary(knowledge)?.taskId ?? "(none)"} — switch with: internify work <spec>`,
   );
 }
 
@@ -351,6 +418,7 @@ function cmdStatus(argv: string[] = []): void {
             .filter((r) => r.required !== false && !r.read)
             .map((r) => r.path).join(", ");
           d += ` | phase=${ledger.phase} | step=${step} | pending reads=${pending || "none"}`;
+          if (ledger.phase === "done") d += `\n  hint: closed task still listed — run \`internify clear ${t.taskId}\``;
         }
         console.log(d);
       }
@@ -748,13 +816,19 @@ const ANCHORREFRESH_BODY_CLI = `Refresh anchor statuses: {ARGS}
 
 Run \`internify anchor-refresh {ARGS}\` to re-check anchor statuses without resetting reads or steps.`;
 
-const CLOSE_BODY_TOOLS = `Close the spec: {ARGS}
+const CLOSE_BODY_TOOLS = `Close a task: {ARGS}
 
-Call \`intern_close\` with \`specRoot="{ARGS}"\` to validate evidence, append the daily log, and finish.`;
+Call \`intern_close\` to close the focus task, or with \`specRoot="{ARGS}"\` to close that specific task without switching focus. Add force=true to skip the evidence gate (escape hatch — decision recorded).`;
 
-const CLOSE_BODY_CLI = `Close the spec: {ARGS}
+const CLOSE_BODY_CLI = `Close a task: {ARGS}
 
-Run \`internify close {ARGS}\` to validate evidence, append the daily log, and finish.`;
+Run \`internify close {ARGS}\` (defaults to the focus task). \`--force\` skips the evidence gate. \`internify clear <spec>\` removes a stuck task from the active list instead of closing it.`;
+
+const CLEAR_BODY_TOOLS = `Clear stuck/done tasks from the active list: {ARGS}
+
+Run \`internify clear {ARGS}\` via bash (\`--all\` for every task, \`--purge\` to also delete task state). Context stays recorded unless purged.`;
+
+const CLEAR_BODY_CLI = CLEAR_BODY_TOOLS;
 
 const OVERCLEAR_BODY_TOOLS = `Clear the forceAllow bypass: call \`intern_override_clear\` to manually clear the override.`;
 
@@ -841,9 +915,15 @@ const COMMANDS: CmdDef[] = [
   },
   {
     name: "close",
-    description: "Close the spec — validate evidence, append daily log.",
+    description: "Close a task — optionally by spec name, or with --force.",
     tools: CLOSE_BODY_TOOLS,
     cli: CLOSE_BODY_CLI,
+  },
+  {
+    name: "clear",
+    description: "Remove stuck/done tasks from the active list (--all, --purge).",
+    tools: CLEAR_BODY_TOOLS,
+    cli: CLEAR_BODY_CLI,
   },
   {
     name: "overrideClear",
@@ -1206,7 +1286,8 @@ Commands:
   context <path> <selector> [--kind section|function]
   step <id> <anchor>                declare the active step
   evidence <step> --claim <c> --proof <p> --result pass|fail
-  close                             validate evidence, append daily, finish
+  close [<spec>] [--force]         close task (default: focus). --force skips the evidence gate
+  clear <spec> | --all [--purge]   remove task(s) from active.json; --purge deletes task state
   rework <spec>                     rework a done spec (revision+1, phase→orient)
   scope-add <spec> <path>           add a file to scope without re-indexing
   anchor-refresh <spec>             refresh anchor statuses without resetting reads
@@ -1218,7 +1299,7 @@ Commands:
 
 Env: INTERNIFY_ROOT (default: cwd), INTERN_HARNESS=on|warn|off
 Config: <root>/internify.json
-  { "target", "knowledge", "plansDir", "dailyDir" }`);
+  { "target", "knowledge", "plansDir", "dailyDir", "gateMode" }`);
 }
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -1283,7 +1364,10 @@ switch (cmd) {
     cmdEvidence(rest[0], rest);
     break;
   case "close":
-    cmdClose();
+    cmdClose(rest);
+    break;
+  case "clear":
+    cmdClear(rest);
     break;
   case "status":
     cmdStatus(rest);

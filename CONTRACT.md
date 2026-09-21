@@ -91,11 +91,12 @@ proof: <how it was verified>
 |--------|---------|
 | `boot` | Collect session context → write `CONTEXT.md`. Auto-prunes orphan `active.json` entries (no valid ledger) first. |
 | `spec new <Name>` | Scaffold a spec folder from the template (placeholders filled) |
-| `index <spec-folder>` | Scan spec, build `INDEX.md`, start/resume task |
+| `index <spec-folder>` | Scan spec, build `INDEX.md`, start/resume task. Resume is hash-aware: required reads whose file hash is unchanged stay grounded (no re-read ritual); the phase is preserved instead of resetting to `orient`. |
 | `context <path> <selector>` | Return a minimal slice |
 | `step <id> <anchor>` | Declare active step + anchor |
 | `evidence <step> --claim --proof --result` | Append a proof record |
-| `close` | Validate evidence, append daily log, finish. Clears `forceAllow`, removes the task from `active.json` (promotes next primary), and flips `[#taskId]`-tagged daily checklists to `[x]`. |
+| `close [<spec>] [--force]` | Validate evidence, append daily log, finish. Optional spec closes that task without switching focus; `--force` skips the evidence gate (decision recorded). Clears `forceAllow`, removes the task from `active.json` (promotes next primary), and flips `[#taskId]`-tagged daily checklists to `[x]`. |
+| `clear <spec> \| --all [--purge]` | Remove task(s) from `active.json` without the close ritual (stuck/done leftovers). `--purge` also deletes `state/tasks/<id>/`. |
 | `rework <spec-folder>` | Rework a done spec — reset phase, increment revision, re-read |
 | `scope-add <spec-folder> <path>` | Add a file to the task scope without re-indexing |
 | `anchor-refresh <spec-folder>` | Refresh anchor statuses without resetting reads or steps |

@@ -1,6 +1,6 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin";
-import { buildIndex } from "../../../core/lib/index-builder";
+import { buildIndex, mergeRequiredReads } from "../../../core/lib/index-builder";
 import { canEdit, canStep, canClose, canBash, enforceGate } from "../../../core/lib/gates";
 import { refreshAnchorStatuses } from "../../../core/lib/anchors";
 import { sliceFunction, sliceSection } from "../../../core/lib/context";
@@ -279,8 +279,10 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           const taskId = slug(specRel);
           const idx = buildIndex(join(root, specRel), root, target);
           saveIndex(knowledge, taskId, idx);
-          const ledger = loadLedger(knowledge, taskId) ?? emptyLedger(taskId, specRel);
-          ledger.requiredReads = idx.requiredReads.map((r) => ({ ...r, read: false }));
+          const prev = loadLedger(knowledge, taskId);
+          const ledger = prev ?? emptyLedger(taskId, specRel);
+          const freshReads = mergeRequiredReads(prev?.requiredReads ?? [], idx.requiredReads);
+          ledger.requiredReads = freshReads;
           ledger.scope = idx.requiredReads.map((r) => r.path);
           if (ledger.scope.length === 0) ledger.scope = [specRel];
           if (ledger.steps.length === 0) {
@@ -291,11 +293,24 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
               done: false,
             }));
           }
-          ledger.phase = "orient";
+          const resuming = !!prev && prev.phase !== "idle";
+          if (!resuming) ledger.phase = "orient";
           ledger.updated = nowIso();
           saveLedger(knowledge, ledger);
           setActive(knowledge, taskId, specRel);
-          return `INDEX built. task=${taskId} reads=${idx.requiredReads.length}`;
+          if (resuming) {
+            const unread = ledger.requiredReads.filter((r) => !r.read).length;
+            const ev = readEvidence(knowledge, taskId);
+            return (
+              `INDEX built. task=${taskId} reads=${freshReads.length} ` +
+              `(resumed: phase=${ledger.phase}, step=${ledger.activeStep ?? "(none)"}, ` +
+              `evidence=${ev.filter((e) => e.result === "pass").length} pass, re-read: ${unread})` +
+              (ledger.phase === "done"
+                ? "\nnote: task already done — use `internify rework` to restart it."
+                : "")
+            );
+          }
+          return `INDEX built. task=${taskId} reads=${freshReads.length}`;
         },
       }),
 
@@ -452,32 +467,54 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
       }),
 
       intern_close: tool({
-        description: "Close the task after all steps have passing evidence.",
-        args: {},
-        async execute() {
-          const active = getActive(knowledge);
-          if (!active) return "No active task.";
-          const ledger = loadLedger(knowledge, active.taskId);
-          if (!ledger) return "Ledger missing.";
-          const d = canClose(ledger, readEvidence(knowledge, active.taskId));
-          if (!d.ok) throw new Error(d.reason);
+        description:
+          "Close the task after all steps have passing evidence. Optional specRoot closes that specific task; force skips the evidence gate.",
+        args: {
+          specRoot: tool.schema.string().optional(),
+          force: tool.schema.boolean().optional(),
+        },
+        async execute(args) {
+          let taskId: string;
+          if (args.specRoot) {
+            const rel = toRel(root, args.specRoot.replace(/\/+$/, ""));
+            if (!rel || rel.startsWith("..")) {
+              throw new Error(`specRoot outside repo: ${args.specRoot}`);
+            }
+            taskId = slug(rel);
+          } else {
+            const active = getActive(knowledge);
+            if (!active) return "No active task.";
+            taskId = active.taskId;
+          }
+          const ledger = loadLedger(knowledge, taskId);
+          if (!ledger) return `Ledger missing for ${taskId}.`;
+          if (!args.force) {
+            const d = canClose(ledger, readEvidence(knowledge, taskId));
+            if (!d.ok) throw new Error(d.reason);
+          }
           const dailyName = appendDaily(
             knowledge,
-            `### internify task closed — ${active.taskId} ${nowIso()}\n` +
+            `### internify task closed — ${taskId} ${nowIso()}${args.force ? " (force)" : ""}\n` +
               `- rev: ${ledger.revision || 1}\n` +
               `- steps: ${ledger.steps.map((s) => s.id).join(", ")}\n` +
-              `- evidence: .intern/state/tasks/${active.taskId}/EVIDENCE.md`,
+              `- evidence: .intern/state/tasks/${taskId}/EVIDENCE.md`,
             daily,
           );
           ledger.steps.forEach((s) => (s.done = true));
           ledger.phase = "done";
           ledger.forceAllow = false;
+          if (args.force) {
+            ledger.decisions = [
+              ...(ledger.decisions ?? []),
+              `FORCE-CLOSED ${nowIso()}: closed without full evidence by user request`,
+            ];
+          }
           ledger.updated = nowIso();
           saveLedger(knowledge, ledger);
-          const dailyRes = resolveDailyChecklists(daily, active.taskId);
-          removeActiveTask(knowledge, active.taskId);
+          const dailyRes = resolveDailyChecklists(daily, taskId);
+          removeActiveTask(knowledge, taskId);
           return (
-            `Task ${active.taskId} closed. Daily log: ${dailyName}` +
+            `Task ${taskId} closed${args.force ? " (force)" : ""}. Daily log: ${dailyName}` +
             (dailyRes.checked > 0 ? ` · daily items checked: ${dailyRes.checked}` : "")
           );
         },
@@ -510,6 +547,9 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
                   .filter((r) => r.required !== false && !r.read)
                   .map((r) => r.path).join(", ");
                 d += ` | phase: ${ledger.phase} | step: ${step} | pending reads: ${pending || "none"}`;
+                if (ledger.phase === "done") {
+                  d += `\n  hint: closed task still listed — run \`internify clear ${t.taskId}\``;
+                }
               }
               lines.push(d);
             }

@@ -104,3 +104,32 @@ test("cross-repo ref resolves against root when missing in target", () => {
   const anchor = idx.anchors.find((a) => a.file === "internify-ai/core/lib/boot.ts");
   expect(anchor?.status).toBe("ok");
 });
+
+// --- mergeRequiredReads (hash-aware resume) ---
+
+import { mergeRequiredReads } from "./index-builder";
+
+const rr = (path: string, hash: string, read: boolean) => ({
+  key: path, path, kind: "code" as const, hash, read,
+});
+
+test("mergeRequiredReads keeps read flag when hash unchanged", () => {
+  const prev = [rr("a.ts", "h1", true), rr("b.ts", "h2", false)];
+  const fresh = [rr("a.ts", "h1", false), rr("b.ts", "h2", false)];
+  const merged = mergeRequiredReads(prev, fresh);
+  expect(merged[0].read).toBe(true);
+  expect(merged[1].read).toBe(false);
+});
+
+test("mergeRequiredReads resets read when file changed", () => {
+  const prev = [rr("a.ts", "h1", true)];
+  const merged = mergeRequiredReads(prev, [rr("a.ts", "h9", false)]);
+  expect(merged[0].read).toBe(false);
+});
+
+test("mergeRequiredReads new files start unread, dropped files ignored", () => {
+  const prev = [rr("old.ts", "h1", true)];
+  const merged = mergeRequiredReads(prev, [rr("new.ts", "h2", false)]);
+  expect(merged.map((r) => r.path)).toEqual(["new.ts"]);
+  expect(merged[0].read).toBe(false);
+});
