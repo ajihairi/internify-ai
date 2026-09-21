@@ -65,6 +65,7 @@ import {
   writeContext,
 } from "./lib/io";
 import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
+import { removeActiveTask, resolveDailyChecklists, pruneActiveTasks } from "./lib/lifecycle";
 import { findSpecTemplate, newSpec, specNameFromPath } from "./lib/spec";
 import { syncProjectContext } from "./lib/discover";
 import { syncCodeKnowledge, buildDigestSummary } from "./lib/learn";
@@ -146,6 +147,10 @@ function cmdLearn(): void {
 }
 
 function cmdBoot(): void {
+  const prune = pruneActiveTasks(knowledge);
+  if (prune.pruned.length > 0) {
+    console.error(`pruned orphan tasks: ${prune.pruned.join(", ")}`);
+  }
   const dailies = listDaily(knowledge, daily);
   const latest = pickLatestDaily(dailies);
   let dailyText = "";
@@ -301,9 +306,15 @@ function cmdClose(): void {
   );
   ledger.steps.forEach((s) => (s.done = true));
   ledger.phase = "done";
+  ledger.forceAllow = false;
   ledger.updated = nowIso();
   saveLedger(knowledge, ledger);
-  console.log(`Task ${active.taskId} closed. Daily: ${dailyName}`);
+  const dailyRes = resolveDailyChecklists(daily, active.taskId);
+  removeActiveTask(knowledge, active.taskId);
+  console.log(
+    `Task ${active.taskId} closed. Daily: ${dailyName}` +
+      (dailyRes.checked > 0 ? ` · daily items checked: ${dailyRes.checked}` : ""),
+  );
 }
 
 function statusDailySection(): string {

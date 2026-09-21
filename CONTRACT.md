@@ -89,19 +89,31 @@ proof: <how it was verified>
 
 | Action | Meaning |
 |--------|---------|
-| `boot` | Collect session context → write `CONTEXT.md` |
+| `boot` | Collect session context → write `CONTEXT.md`. Auto-prunes orphan `active.json` entries (no valid ledger) first. |
 | `spec new <Name>` | Scaffold a spec folder from the template (placeholders filled) |
 | `index <spec-folder>` | Scan spec, build `INDEX.md`, start/resume task |
 | `context <path> <selector>` | Return a minimal slice |
 | `step <id> <anchor>` | Declare active step + anchor |
 | `evidence <step> --claim --proof --result` | Append a proof record |
-| `close` | Validate evidence, append daily log, finish |
+| `close` | Validate evidence, append daily log, finish. Clears `forceAllow`, removes the task from `active.json` (promotes next primary), and flips `[#taskId]`-tagged daily checklists to `[x]`. |
 | `rework <spec-folder>` | Rework a done spec — reset phase, increment revision, re-read |
 | `scope-add <spec-folder> <path>` | Add a file to the task scope without re-indexing |
 | `anchor-refresh <spec-folder>` | Refresh anchor statuses without resetting reads or steps |
 | `status` | Show phase + ledger |
 | `override <reason>` | One-shot recorded gate bypass |
 | `override clear` | Clear forceAllow bypass manually |
+
+### 3b. Daily checklist tags
+
+Daily checklist items may carry a task tag — tag position is free:
+
+```
+- [ ] [#taskId] description
+```
+
+On `close`, every `daily/*.md` file is scanned: items tagged with the closing
+task's id are flipped to `[x]`. Untagged items are never touched (daily is
+independent of the harness; check them off manually).
 
 ## 4. Gates
 

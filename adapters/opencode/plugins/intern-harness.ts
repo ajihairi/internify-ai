@@ -16,6 +16,11 @@ import { syncProjectContext } from "../../../core/lib/discover";
 import { syncCodeKnowledge, buildDigestSummary } from "../../../core/lib/learn";
 import { formatDailyUnfinished, loadLatestDaily } from "../../../core/lib/daily";
 import {
+  pruneActiveTasks,
+  removeActiveTask,
+  resolveDailyChecklists,
+} from "../../../core/lib/lifecycle";
+import {
   loadLedger,
   saveLedger,
   saveIndex,
@@ -221,6 +226,11 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           const active = getActive(knowledge);
           const ledger = active ? loadLedger(knowledge, active.taskId) : null;
           const projectFiles = loadProjectManifest(knowledge).map((e) => e.path);
+          try {
+            pruneActiveTasks(knowledge);
+          } catch {
+            /* boot keeps running if prune fails */
+          }
           const activeTasks = loadActiveTasks(knowledge);
           const primary = getPrimary(knowledge)?.taskId ?? null;
           const activeLedgers = activeTasks
@@ -446,9 +456,15 @@ export const InternHarness: Plugin = async ({ directory, worktree }) => {
           );
           ledger.steps.forEach((s) => (s.done = true));
           ledger.phase = "done";
+          ledger.forceAllow = false;
           ledger.updated = nowIso();
           saveLedger(knowledge, ledger);
-          return `Task ${active.taskId} closed. Daily log: ${dailyName}`;
+          const dailyRes = resolveDailyChecklists(daily, active.taskId);
+          removeActiveTask(knowledge, active.taskId);
+          return (
+            `Task ${active.taskId} closed. Daily log: ${dailyName}` +
+            (dailyRes.checked > 0 ? ` · daily items checked: ${dailyRes.checked}` : "")
+          );
         },
       }),
 

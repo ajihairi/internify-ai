@@ -21,6 +21,7 @@ import {
   listDaily,
   setActive,
   getActive,
+  loadActiveTasks,
   writeContext,
 } from "./lib/io";
 import { buildContextPack, extractSummary, pickLatestDaily } from "./lib/boot";
@@ -296,6 +297,55 @@ check(
   "context: sliceFunction returns function body",
   fn.includes("func mainButtonTitle") && fn.includes("}"),
   JSON.stringify(fn),
+);
+
+console.log("\n## lifecycle — close cleanup");
+import { removeActiveTask, resolveDailyChecklists, pruneActiveTasks } from "./lib/lifecycle";
+const dailyDir = join(knowledge, "daily");
+const fixDaily = join(dailyDir, "09-09-2026.md");
+const fixOriginal = readFileSync(fixDaily, "utf8");
+writeFileSync(
+  fixDaily,
+  fixOriginal + "\n- [ ] [#spec] finish smoke\n- [ ] untagged stays\n",
+);
+setActive(knowledge, taskId, "spec");
+const simLedger2 = loadLedger(knowledge, taskId);
+if (simLedger2) {
+  simLedger2.forceAllow = true;
+  saveLedger(knowledge, simLedger2);
+}
+const dailyRes = resolveDailyChecklists(dailyDir, taskId);
+check(
+  "lifecycle: daily tag resolved",
+  dailyRes.checked === 1 &&
+    readFileSync(fixDaily, "utf8").includes("- [x] [#spec] finish smoke") &&
+    readFileSync(fixDaily, "utf8").includes("- [ ] untagged stays"),
+  `checked=${dailyRes.checked}`,
+);
+const restActive = removeActiveTask(knowledge, taskId);
+check(
+  "lifecycle: active entry removed on close",
+  !loadActiveTasks(knowledge).some((t) => t.taskId === taskId),
+  `entries=${loadActiveTasks(knowledge).map((t) => t.taskId).join(",") || "(none)"}`,
+);
+const closedLedger = loadLedger(knowledge, taskId);
+check(
+  "lifecycle: forceAllow visible in ledger before close",
+  !!closedLedger && closedLedger.forceAllow === true && restActive.length === 0,
+  `forceAllow=${closedLedger?.forceAllow}`,
+);
+const pr = pruneActiveTasks(knowledge);
+check(
+  "lifecycle: boot prune leaves clean state",
+  pr.pruned.length === 0,
+  `pruned=${pr.pruned.join(",") || "(none)"}`,
+);
+setActive(knowledge, "ghost-orphan", "spec/ghost-orphan");
+const orphan = pruneActiveTasks(knowledge);
+check(
+  "lifecycle: prune drops orphan entry",
+  orphan.pruned.length === 1 && orphan.pruned[0] === "ghost-orphan",
+  `pruned=${orphan.pruned.join(",")}`,
 );
 
 console.log("\n## summary");

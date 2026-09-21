@@ -6,6 +6,21 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-21
+
+### Added
+
+- **Clean task lifecycle.** `close` now fully cleans up: removes the task from
+  `active.json` (multi-task safe, promotes next primary), resets `forceAllow`,
+  and auto-checks `[#taskId]`-tagged daily checklist items across all daily
+  logs (tag position free; untagged items untouched).
+- **Orphan auto-prune on boot.** `boot` (CLI + OpenCode plugin) drops
+  `active.json` entries whose ledger is missing or corrupt, with a
+  `pruned orphan tasks:` notice. Zero interaction.
+- New `core/lib/lifecycle.ts` — `removeActiveTask`, `pruneActiveTasks`,
+  `resolveDailyChecklists` (+ 15 unit tests, smoke coverage).
+- CONTRACT §3b — daily checklist tag convention.
+
 ## [0.17.0] - 2026-09-11
 
 ### Changed
