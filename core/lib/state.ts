@@ -24,7 +24,7 @@ export function emptyLedger(
     specRoot,
     role,
     phase: "orient",
-    revision: 0,
+    revision: 1,
     scope: [],
     requiredReads: [],
     steps: [],
@@ -85,7 +85,7 @@ export function parseLedger(md: string): Ledger | null {
       return null;
     }
     const ledger = obj as Ledger;
-    if (typeof ledger.revision !== "number") ledger.revision = 0;
+    if (typeof ledger.revision !== "number") ledger.revision = 1;
     return ledger;
   } catch {
     return null;

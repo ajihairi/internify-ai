@@ -178,3 +178,42 @@ test("canEdit allows a root-relative cross-repo scope entry", () => {
   expect(canEdit("/repo", l, "internify-ai/core/lib/boot.ts").ok).toBe(true);
 });
 
+// --- revision-aware tests ---
+
+test("canClose only checks evidence for current revision", () => {
+  const l = ledger({ phase: "verifying", revision: 2 });
+  const evidence = [
+    { step: "S1", result: "pass" as const, revision: 1 },
+  ];
+  const r = canClose(l, evidence);
+  expect(r.ok).toBe(false);
+  expect(r.reason).toContain("rev 2");
+});
+
+test("canClose passes with matching revision evidence", () => {
+  const l = ledger({ phase: "verifying", revision: 2 });
+  const evidence = [
+    { step: "S1", result: "pass" as const, revision: 2 },
+  ];
+  expect(canClose(l, evidence).ok).toBe(true);
+});
+
+test("canClose treats undefined revision evidence as current", () => {
+  const l = ledger({ phase: "verifying", revision: 1 });
+  const evidence = [
+    { step: "S1", result: "pass" as const },
+  ];
+  expect(canClose(l, evidence).ok).toBe(true);
+});
+
+test("canEdit enforces scope in done phase (no blanket pass)", () => {
+  const l = ledger({ phase: "done", scope: ["src/A.swift"], activeStep: null });
+  expect(canEdit("/repo", l, "src/A.swift").ok).toBe(true);
+  expect(canEdit("/repo", l, "src/B.swift").ok).toBe(false);
+});
+
+test("canEdit done phase still bypassed by forceAllow", () => {
+  const l = ledger({ phase: "done", scope: ["src/A.swift"], forceAllow: true });
+  expect(canEdit("/repo", l, "src/B.swift").ok).toBe(true);
+});
+

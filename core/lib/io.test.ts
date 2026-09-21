@@ -136,3 +136,25 @@ test("markRead marks a required read by path", () => {
   expect(loadLedger(k, "t1")?.requiredReads[0].read).toBe(true);
   expect(markRead(k, "t1", "nope")).toBe(false);
 });
+
+test("evidence revision headers written on revision change", () => {
+  const k = tmp();
+  appendEvidence(k, "t1", "## S1 2026 result=pass\nclaim: c\nproof: p", 1);
+  appendEvidence(k, "t1", "## S2 2026 result=pass\nclaim: c\nproof: p", 2);
+  const records = readEvidence(k, "t1");
+  expect(records).toEqual([
+    { step: "S1", result: "pass", revision: 1 },
+    { step: "S2", result: "pass", revision: 2 },
+  ]);
+});
+
+test("evidence same revision does not duplicate header", () => {
+  const k = tmp();
+  appendEvidence(k, "t1", "## S1 2026 result=pass\nclaim: c\nproof: p", 1);
+  appendEvidence(k, "t1", "## S2 2026 result=fail\nclaim: c\nproof: p", 1);
+  const records = readEvidence(k, "t1");
+  expect(records).toEqual([
+    { step: "S1", result: "pass", revision: 1 },
+    { step: "S2", result: "fail", revision: 1 },
+  ]);
+});

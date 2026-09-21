@@ -36,3 +36,26 @@ test("parseLedger returns null for missing/corrupt/wrong-shape", () => {
   const wrongShape = upsertBlock("# x", "ledger", 42);
   expect(parseLedger(wrongShape)).toBeNull();
 });
+
+test("emptyLedger defaults revision to 1", () => {
+  const l = emptyLedger("t", "/s");
+  expect(l.revision).toBe(1);
+});
+
+test("parseLedger defaults missing revision to 1 (backward compat)", () => {
+  const md = upsertBlock("# x", "ledger", {
+    taskId: "t",
+    specRoot: "/s",
+    role: "r",
+    phase: "orient",
+    scope: [],
+    requiredReads: [],
+    steps: [],
+    decisions: [],
+    openQuestions: [],
+    activeStep: null,
+    updated: "",
+  });
+  const back = parseLedger(md);
+  expect(back?.revision).toBe(1);
+});
